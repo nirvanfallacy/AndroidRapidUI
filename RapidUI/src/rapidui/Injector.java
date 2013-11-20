@@ -1,27 +1,49 @@
 package rapidui;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashMap;
 
-import rapidui.annotation.FullScreen;
-import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
-import rapidui.annotation.OptionsMenu;
-import rapidui.annotation.TitleBar;
-import rapidui.annotation.TitleBarType;
+import rapidui.annotation.eventhandler.OnClick;
+import rapidui.annotation.eventhandler.OnMenuItemClick;
+import rapidui.eventhandler.EventHandlerRegistrar;
+import rapidui.eventhandler.OnClickRegistrar;
+import rapidui.eventhandler.OnMenuItemClickRegistrar;
 import android.app.Activity;
 import android.content.res.Resources;
-import android.view.Menu;
-import android.view.Window;
-import android.view.WindowManager;
+import android.util.SparseArray;
+import android.view.View;
 
-public class Injector {
-	public static void injectViews(Activity activity) {
+public abstract class Injector {
+	private static HashMap<Class<? extends Annotation>, EventHandlerRegistrar> eventHandlerRegistrarList =
+			new HashMap<Class<? extends Annotation>, EventHandlerRegistrar>();
+	
+	static {
+		eventHandlerRegistrarList.put(OnClick.class, new OnClickRegistrar());
+		eventHandlerRegistrarList.put(OnMenuItemClick.class, new OnMenuItemClickRegistrar());
+	}
+	
+	protected Activity activity;
+	protected Object memberContainer;
+	protected ViewFinder viewFinder;
+	
+	public Injector(Activity activity, Object memberContainer, ViewFinder viewFinder) {
+		this.activity = activity;
+		this.memberContainer = memberContainer;
+		this.viewFinder = viewFinder;
+	}
+	
+	public void injectViews() {
 		final Resources res = activity.getResources();
-		final Class<?> activityClass = activity.getClass();
+		final Class<?> cls = memberContainer.getClass();
+		
+		final SparseArray<View> viewMap = new SparseArray<View>();
 		
 		// Inject fields
 		
-		for (Field field: activityClass.getDeclaredFields()) {
+		for (Field field: cls.getDeclaredFields()) {
 			final String fieldName = field.getName();
 			
 			final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
@@ -33,14 +55,19 @@ public class Injector {
 					id = res.getIdentifier(fieldName, "id", packageName);
 					
 					if (id == 0) {
-						final String name = camelCaseToUnderlinedLowerCase(fieldName);
+						final String name = toLowerUnderline(fieldName);
 						id = res.getIdentifier(name, "id", packageName);
 					}
 				}
 				
 				field.setAccessible(true);
 				try {
-					field.set(activity, activity.findViewById(id));
+					final View v = viewFinder.findViewById(id);
+					field.set(memberContainer, v);
+					
+					if (v != null) {
+						viewMap.put(id, v);
+					}
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {
@@ -48,104 +75,113 @@ public class Injector {
 				}
 			}
 		}
+
+		// Inject event handlers
+		
+		for (Method method: cls.getDeclaredMethods()) {
+			for (Annotation annotation: method.getAnnotations()) {
+				final EventHandlerRegistrar registrar = eventHandlerRegistrarList.get(annotation.annotationType());
+				if (registrar != null) {
+					final int eventType = registrar.getEventType();
+					final int targetType = registrar.getTargetType();
+					final int[] targetIds = registrar.getTargetIds(annotation);
+
+					if (eventType == EventHandlerRegistrar.EVENT_TYPE_DEFAULT) {
+						for (int id: targetIds) {
+							final Object target;
+							switch (targetType) {
+							case EventHandlerRegistrar.TARGET_TYPE_ACTIVITY:
+								target = activity;
+								break;
+								
+							default:
+								target = registrar.selectEventTarget(viewFinder, id, viewMap);
+								break;
+							}
+							
+							registrar.registerEventListener(target, memberContainer, method);
+						}
+					} else {
+						for (int id: targetIds) {
+							registrar.registerEventListener(this, id, method);
+						}
+					}
+				}
+			}
+		}
 	}
 	
-	static String camelCaseToUnderlinedLowerCase(String s) {
-		final StringBuilder sb = new StringBuilder();
+	static String toLowerUnderline(String s) {
+		final int STATE_NONE = 0;
+		final int STATE_UPPER_CASE = 1;
+		final int STATE_LOWER_CASE = 2;
 		
-		boolean lastCharWasUpperCase = true;
+		final StringBuilder sb = new StringBuilder();
+
+		int upperStartIndex = -1;
+		int state = STATE_NONE;
 		
 		for (int i = 0; i < s.length(); ++i) {
-			char c = s.charAt(i);
+			final char c = s.charAt(i);
+			
+			final int newState;
 			if (Character.isUpperCase(c)) {
-				c = Character.toLowerCase(c);
-				if (lastCharWasUpperCase) {
-					sb.append(c);
-				} else {
-					sb.append('_').append(c);
-				}
-				lastCharWasUpperCase = true;
+				newState = STATE_UPPER_CASE;
+			} else if (Character.isLowerCase(c)) {
+				newState = STATE_LOWER_CASE;
 			} else {
+				if (c == '_') {
+					newState = STATE_NONE;
+				} else {
+					newState = state;
+				}
+			}
+			
+			switch (newState) {
+			case STATE_UPPER_CASE:
+				if (state != STATE_UPPER_CASE) {
+					upperStartIndex = i;
+					if (state == STATE_LOWER_CASE) {
+						sb.append('_');
+					}
+				}
+				break;
+				
+			case STATE_LOWER_CASE:
+				if (state == STATE_UPPER_CASE) {
+					if (upperStartIndex < i - 1) {
+						for (int j = upperStartIndex; j < i - 1; ++j) {
+							sb.append(Character.toLowerCase(s.charAt(j)));
+						}
+						sb.append('_');
+					}
+					
+					sb.append(Character.toLowerCase(s.charAt(i - 1)))
+					  .append(c);
+					
+					upperStartIndex = -1;
+				} else {
+					sb.append(c);
+				}
+				break;
+				
+			case STATE_NONE:
 				sb.append(c);
-				lastCharWasUpperCase = false;
+				break;
+			}
+			
+			state = newState;
+		}
+		
+		if (upperStartIndex >= 0) {
+			for (int i = upperStartIndex; i < s.length(); ++i) {
+				sb.append(Character.toLowerCase(s.charAt(i)));
 			}
 		}
 		
 		return sb.toString();
 	}
 	
-	public static void injectActivity(Activity activity) {
-		final Resources res = activity.getResources();
-		final Window w = activity.getWindow();
-		final Class<?> activityClass = activity.getClass();
-		
-		// NoTitleBar
-		
-		final TitleBar titleBar = activityClass.getAnnotation(TitleBar.class);
-		if (titleBar != null) {
-			final TitleBarType type = titleBar.value();
-			if (type == TitleBarType.NONE) {
-				activity.requestWindowFeature(Window.FEATURE_NO_TITLE);
-			} else if (type == TitleBarType.CUSTOM) {
-				activity.requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
-			}
-		}
-		
-		// Layout
-		
-		final Layout layout = activityClass.getAnnotation(Layout.class);
-		if (layout != null) {
-			int id = layout.value();
-			if (id == 0) {
-				final String packageName = activity.getPackageName();
-				
-				String name = activityClass.getSimpleName();
-				if (name.length() > 8 && name.endsWith("Activity")) {
-					name = "activity_" + camelCaseToUnderlinedLowerCase(name.substring(0, name.length() - 8));
-				} else {
-					name = camelCaseToUnderlinedLowerCase(name);
-				}
-
-				id = res.getIdentifier(name, "layout", packageName);
-			}
-			
-			activity.setContentView(id);
-		}
-		
-		// Fullscreen
-		
-		if (activityClass.isAnnotationPresent(FullScreen.class)) {
-			w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-		}
-		
-		// Set layout id when the title bar is set to be customized.
-		
-		if (titleBar != null && titleBar.value() == TitleBarType.CUSTOM) {
-			w.setFeatureInt(Window.FEATURE_CUSTOM_TITLE, titleBar.id());
-		}
-	}
-
-	public static void injectOptionsMenu(Activity activity, Menu menu) {
-		final Resources res = activity.getResources();
-		final Class<?> activityClass = activity.getClass();
-
-		final OptionsMenu optionsMenu = activityClass.getAnnotation(OptionsMenu.class);
-		if (optionsMenu != null) {
-			int id = optionsMenu.value();
-			if (id == 0) {
-				final String packageName = activity.getPackageName();
-				
-				String name = activityClass.getSimpleName();
-				if (name.length() > 8 && name.endsWith("Activity")) {
-					name = camelCaseToUnderlinedLowerCase(name.substring(0, name.length() - 8));
-				} else {
-					name = camelCaseToUnderlinedLowerCase(name);
-				}
-
-				id = res.getIdentifier(name, "menu", packageName);
-			}
-
-			activity.getMenuInflater().inflate(id, menu);
-		}
+	public void registerExternalHandler(int type, int id, Method method) {
 	}
 }

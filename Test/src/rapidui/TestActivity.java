@@ -1,16 +1,16 @@
 package rapidui;
 
-import rapidui.annotation.EventHandler;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.OptionsMenu;
+import rapidui.annotation.eventhandler.OnMenuItemClick;
 import rapidui.test.R;
 import android.view.MenuItem;
 import android.widget.TextView;
 
 @Layout
 @OptionsMenu
-public class TestActivity extends Activity {
+public class TestActivity extends RapidActivity {
 	boolean settingsMenuClicked = false;
 	
 	@LayoutElement
@@ -22,12 +22,9 @@ public class TestActivity extends Activity {
 	@LayoutElement(R.id.text_hello_world)
 	TextView helloWorld;
 	
-	@EventHandler(target=R.id.action_settings)
-	private MenuItem.OnMenuItemClickListener settingsClick = new MenuItem.OnMenuItemClickListener() {
-		@Override
-		public boolean onMenuItemClick(MenuItem item) {
-			settingsMenuClicked = true;
-			return true;
-		}
-	};
+	@OnMenuItemClick(R.id.action_settings)
+	boolean actionSettings_MenuItemClick(MenuItem item) {
+		settingsMenuClicked = true;
+		return true;
+	}
 }

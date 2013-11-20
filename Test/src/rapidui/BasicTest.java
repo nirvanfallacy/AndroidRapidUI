@@ -2,15 +2,15 @@ package rapidui;
 
 import rapidui.test.R;
 import android.app.Instrumentation;
-import android.test.ActivityInstrumentationTestCase2;
+import android.test.SingleLaunchActivityTestCase;
 import android.view.KeyEvent;
 import android.view.View;
 
-public class BasicTest extends ActivityInstrumentationTestCase2<TestActivity> {
+public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 	private TestActivity activity;
 	
 	public BasicTest() {
-		super(TestActivity.class);
+		super("rapidui.test", TestActivity.class);
 	}
 	
 	@Override
@@ -20,12 +20,16 @@ public class BasicTest extends ActivityInstrumentationTestCase2<TestActivity> {
 	}
 	
 	public void testCamelCaseToUnderlinedLowerCase() {
-		assertEquals("test", Injector.camelCaseToUnderlinedLowerCase("test"));
-		assertEquals("camel_case", Injector.camelCaseToUnderlinedLowerCase("camelCase"));
-		assertEquals("pascal_case", Injector.camelCaseToUnderlinedLowerCase("PascalCase"));
-		assertEquals("underlined_camel_case", Injector.camelCaseToUnderlinedLowerCase("Underlined_Camel_Case"));
-		assertEquals("xml_document", Injector.camelCaseToUnderlinedLowerCase("XMLDocument"));
-		assertEquals("simple_xml_parser", Injector.camelCaseToUnderlinedLowerCase("SimpleXMLParser"));
+		assertEquals("test", ActivityInjector.toLowerUnderline("test"));
+		assertEquals("camel_case", ActivityInjector.toLowerUnderline("camelCase"));
+		assertEquals("pascal_case", ActivityInjector.toLowerUnderline("PascalCase"));
+		assertEquals("underlined_camel_case", ActivityInjector.toLowerUnderline("Underlined_Camel_Case"));
+		assertEquals("xml_document", ActivityInjector.toLowerUnderline("XMLDocument"));
+		assertEquals("simple_xml_parser", ActivityInjector.toLowerUnderline("SimpleXMLParser"));
+		assertEquals("ab123", ActivityInjector.toLowerUnderline("AB123"));
+		assertEquals("ab123", ActivityInjector.toLowerUnderline("ab123"));
+		assertEquals("a_b123", ActivityInjector.toLowerUnderline("aB123"));
+		assertEquals("html4_document", ActivityInjector.toLowerUnderline("HTML4Document"));
 	}
 
 	public void testMenu() {
