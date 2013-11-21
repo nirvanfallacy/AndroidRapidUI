@@ -4,25 +4,33 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.annotation.eventhandler.OnMenuItemClick;
 import rapidui.eventhandler.EventHandlerRegistrar;
+import rapidui.eventhandler.ExternalHandlerInfo;
 import rapidui.eventhandler.OnClickRegistrar;
-import rapidui.eventhandler.OnMenuItemClickRegistrar;
+import rapidui.eventhandler.OnMenuItemClickInfo;
+import rapidui.util.HashMap3;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.util.SparseArray;
 import android.view.View;
 
 public abstract class Injector {
-	private static HashMap<Class<? extends Annotation>, EventHandlerRegistrar> eventHandlerRegistrarList =
+	public static final int EXTERNAL_HANDLER_MENU_ITEM_CLICK = 0;
+	
+	private static HashMap<Class<? extends Annotation>, EventHandlerRegistrar> eventHandlerRegistrars =
 			new HashMap<Class<? extends Annotation>, EventHandlerRegistrar>();
+	private static HashMap<Class<? extends Annotation>, ExternalHandlerInfo> externalHandlerInfoList =
+			new HashMap<Class<? extends Annotation>, ExternalHandlerInfo>();
 	
 	static {
-		eventHandlerRegistrarList.put(OnClick.class, new OnClickRegistrar());
-		eventHandlerRegistrarList.put(OnMenuItemClick.class, new OnMenuItemClickRegistrar());
+		eventHandlerRegistrars.put(OnClick.class, new OnClickRegistrar());
+		
+		externalHandlerInfoList.put(OnMenuItemClick.class, new OnMenuItemClickInfo());
 	}
 	
 	protected Activity activity;
@@ -37,76 +45,87 @@ public abstract class Injector {
 	
 	public void injectViews() {
 		final Resources res = activity.getResources();
-		final Class<?> cls = memberContainer.getClass();
-		
 		final SparseArray<View> viewMap = new SparseArray<View>();
 		
-		// Inject fields
+		// [viewId][registrar][annotation][method]
+		final HashMap3<Integer, EventHandlerRegistrar, Class<?>, Method> methodMap =
+				new HashMap3<Integer, EventHandlerRegistrar, Class<?>, Method>();
+
+		Class<?> cls = memberContainer.getClass();
 		
-		for (Field field: cls.getDeclaredFields()) {
-			final String fieldName = field.getName();
+		while (cls != null && !cls.equals(RapidActivity.class)) {
+			// Inject fields
 			
-			final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
-			if (layoutElement != null) {
-				int id = layoutElement.value();
-				if (id == 0) {
-					final String packageName = activity.getPackageName();
-					
-					id = res.getIdentifier(fieldName, "id", packageName);
-					
-					if (id == 0) {
-						final String name = toLowerUnderline(fieldName);
-						id = res.getIdentifier(name, "id", packageName);
-					}
-				}
+			for (Field field: cls.getDeclaredFields()) {
+				final String fieldName = field.getName();
 				
-				field.setAccessible(true);
-				try {
-					final View v = viewFinder.findViewById(id);
-					field.set(memberContainer, v);
-					
-					if (v != null) {
-						viewMap.put(id, v);
+				final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
+				if (layoutElement != null) {
+					int id = layoutElement.value();
+					if (id == 0) {
+						final String packageName = activity.getPackageName();
+						
+						id = res.getIdentifier(fieldName, "id", packageName);
+						
+						if (id == 0) {
+							final String name = toLowerUnderline(fieldName);
+							id = res.getIdentifier(name, "id", packageName);
+						}
 					}
-				} catch (IllegalAccessException e) {
-					e.printStackTrace();
-				} catch (IllegalArgumentException e) {
-					e.printStackTrace();
+					
+					field.setAccessible(true);
+					try {
+						final View v = viewFinder.findViewById(id);
+						field.set(memberContainer, v);
+						
+						if (v != null) {
+							viewMap.put(id, v);
+						}
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					}
 				}
 			}
-		}
-
-		// Inject event handlers
-		
-		for (Method method: cls.getDeclaredMethods()) {
-			for (Annotation annotation: method.getAnnotations()) {
-				final EventHandlerRegistrar registrar = eventHandlerRegistrarList.get(annotation.annotationType());
-				if (registrar != null) {
-					final int eventType = registrar.getEventType();
-					final int targetType = registrar.getTargetType();
-					final int[] targetIds = registrar.getTargetIds(annotation);
-
-					if (eventType == EventHandlerRegistrar.EVENT_TYPE_DEFAULT) {
-						for (int id: targetIds) {
-							final Object target;
-							switch (targetType) {
-							case EventHandlerRegistrar.TARGET_TYPE_ACTIVITY:
-								target = activity;
-								break;
-								
-							default:
-								target = registrar.selectEventTarget(viewFinder, id, viewMap);
-								break;
-							}
-							
-							registrar.registerEventListener(target, memberContainer, method);
+	
+			// Inject event handlers
+			
+			for (Method method: cls.getDeclaredMethods()) {
+				for (Annotation annotation: method.getAnnotations()) {
+					final Class<?> annotationType = annotation.annotationType();
+					
+					final EventHandlerRegistrar registrar = eventHandlerRegistrars.get(annotationType);
+					if (registrar != null) {
+						for (int id: registrar.getTargetIds(annotation)) {
+							methodMap.put(id, registrar, annotationType, method);
 						}
-					} else {
-						for (int id: targetIds) {
-							registrar.registerEventListener(this, id, method);
+							
+						continue;
+					}
+					
+					final ExternalHandlerInfo info = externalHandlerInfoList.get(annotationType);
+					if (info != null) {
+						final int type = info.getType();
+						for (int id: info.getTargetIds(annotation)) {
+							registerExternalHandler(type, id, method);
 						}
 					}
 				}
+			}
+			
+			cls = cls.getSuperclass();
+		}
+		
+		for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: methodMap.entrySet()) {
+			final int id = entry.getKey();
+			
+			for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
+				final EventHandlerRegistrar registrar = entry2.getKey();
+				final HashMap<Class<?>, Method> methods = entry2.getValue();
+				
+				final Object target = registrar.selectEventTarget(viewFinder, id, viewMap);
+				registrar.registerEventListener(target, memberContainer, methods);
 			}
 		}
 	}
