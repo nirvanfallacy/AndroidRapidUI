@@ -49,9 +49,9 @@ public class ActivityInjector extends Injector {
 				
 				String name = activityClass.getSimpleName();
 				if (name.length() > 8 && name.endsWith("Activity")) {
-					name = "activity_" + toLowerUnderline(name.substring(0, name.length() - 8));
+					name = "activity_" + toLowerUnderscored(name.substring(0, name.length() - 8));
 				} else {
-					name = toLowerUnderline(name);
+					name = toLowerUnderscored(name);
 				}
 
 				id = res.getIdentifier(name, "layout", packageName);
@@ -85,9 +85,9 @@ public class ActivityInjector extends Injector {
 				
 				String name = activityClass.getSimpleName();
 				if (name.length() > 8 && name.endsWith("Activity")) {
-					name = toLowerUnderline(name.substring(0, name.length() - 8));
+					name = toLowerUnderscored(name.substring(0, name.length() - 8));
 				} else {
-					name = toLowerUnderline(name);
+					name = toLowerUnderscored(name);
 				}
 
 				id = res.getIdentifier(name, "menu", packageName);

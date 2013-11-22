@@ -19,11 +19,12 @@ public class OnClickRegistrar extends EventHandlerRegistrar {
 			HashMap<Class<?>, Method> methods) {
 		
 		final Method onClickMethod = methods.get(OnClick.class);
-
+		
 		((View) target).setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				try {
+					onClickMethod.setAccessible(true);
 					onClickMethod.invoke(instance, v);
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();

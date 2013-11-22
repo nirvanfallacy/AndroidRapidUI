@@ -3,6 +3,7 @@ package rapidui;
 import rapidui.test.R;
 import android.app.Instrumentation;
 import android.test.SingleLaunchActivityTestCase;
+import android.test.UiThreadTest;
 import android.view.KeyEvent;
 import android.view.View;
 
@@ -20,16 +21,16 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 	}
 	
 	public void testCamelCaseToUnderlinedLowerCase() {
-		assertEquals("test", ActivityInjector.toLowerUnderline("test"));
-		assertEquals("camel_case", ActivityInjector.toLowerUnderline("camelCase"));
-		assertEquals("pascal_case", ActivityInjector.toLowerUnderline("PascalCase"));
-		assertEquals("underlined_camel_case", ActivityInjector.toLowerUnderline("Underlined_Camel_Case"));
-		assertEquals("xml_document", ActivityInjector.toLowerUnderline("XMLDocument"));
-		assertEquals("simple_xml_parser", ActivityInjector.toLowerUnderline("SimpleXMLParser"));
-		assertEquals("ab123", ActivityInjector.toLowerUnderline("AB123"));
-		assertEquals("ab123", ActivityInjector.toLowerUnderline("ab123"));
-		assertEquals("a_b123", ActivityInjector.toLowerUnderline("aB123"));
-		assertEquals("html4_document", ActivityInjector.toLowerUnderline("HTML4Document"));
+		assertEquals("test", ActivityInjector.toLowerUnderscored("test"));
+		assertEquals("camel_case", ActivityInjector.toLowerUnderscored("camelCase"));
+		assertEquals("pascal_case", ActivityInjector.toLowerUnderscored("PascalCase"));
+		assertEquals("underlined_camel_case", ActivityInjector.toLowerUnderscored("Underlined_Camel_Case"));
+		assertEquals("xml_document", ActivityInjector.toLowerUnderscored("XMLDocument"));
+		assertEquals("simple_xml_parser", ActivityInjector.toLowerUnderscored("SimpleXMLParser"));
+		assertEquals("ab123", ActivityInjector.toLowerUnderscored("AB123"));
+		assertEquals("ab123", ActivityInjector.toLowerUnderscored("ab123"));
+		assertEquals("a_b123", ActivityInjector.toLowerUnderscored("aB123"));
+		assertEquals("html4_document", ActivityInjector.toLowerUnderscored("HTML4Document"));
 	}
 
 	public void testMenu() {
@@ -46,7 +47,20 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 	public void testFindViewsById() {
 		final View textHelloWorld = activity.findViewById(R.id.text_hello_world);
 		assertSame(textHelloWorld, activity.textHelloWorld);
-		assertSame(textHelloWorld, activity.text_hello_world);
 		assertSame(textHelloWorld, activity.helloWorld);
+		
+		final View button1 = activity.findViewById(R.id.button1);
+		assertSame(button1, activity.button1);
+	}
+	
+	@UiThreadTest
+	public void testEventHandlers() {
+		activity.button1Clicked = false;
+		assertTrue(activity.button1.performClick());
+		assertTrue(activity.button1Clicked);
+		
+		activity.button2Clicked = false;
+		assertTrue(activity.button2.performClick());
+		assertTrue(activity.button2Clicked);
 	}
 }
