@@ -2,6 +2,7 @@ package rapidui;
 
 import rapidui.test.R;
 import android.app.Instrumentation;
+import android.content.Context;
 import android.test.SingleLaunchActivityTestCase;
 import android.test.UiThreadTest;
 import android.view.KeyEvent;
@@ -47,10 +48,17 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 	public void testFindViewsById() {
 		final View textHelloWorld = activity.findViewById(R.id.text_hello_world);
 		assertSame(textHelloWorld, activity.textHelloWorld);
+		assertSame(textHelloWorld, activity.mTextHelloWorld);
 		assertSame(textHelloWorld, activity.helloWorld);
 		
 		final View button1 = activity.findViewById(R.id.button1);
 		assertSame(button1, activity.button1);
+	}
+	
+	public void testSystemServices() {
+		assertSame(activity.getSystemService(Context.ALARM_SERVICE), activity.alarmManager);
+		assertSame(activity.getSystemService(Context.AUDIO_SERVICE), activity.audioManager);
+		assertSame(activity.getSystemService(Context.LOCATION_SERVICE), activity.locationManager);
 	}
 	
 	@UiThreadTest
