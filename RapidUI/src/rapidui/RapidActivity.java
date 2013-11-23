@@ -14,11 +14,11 @@ public class RapidActivity extends android.app.Activity {
 		super.onCreate(savedInstanceState);
 		injector.injectCommonThings();
 		injector.injectActivity();
-		injector.registerReceiversOnCreate();
 		
 		if (savedInstanceState != null) {
 			injector.restoreInstanceStates(savedInstanceState);
 		}
+		injector.registerReceiversOnCreate();
 	}
 	
 	@Override

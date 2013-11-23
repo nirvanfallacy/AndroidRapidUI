@@ -115,8 +115,6 @@ public abstract class Injector {
 	protected Object memberContainer;
 	protected ViewFinder viewFinder;
 	
-	private LinkedList<KeyValueEntry<Field, String>> instanceStates;
-	
 	private LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receiversOnCreate;
 	private LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receiversOnStart;
 	private LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receiversOnResume;
@@ -127,13 +125,17 @@ public abstract class Injector {
 		this.viewFinder = viewFinder;
 	}
 	
+	private static boolean isClassRoot(Class<?> cls) {
+		return cls.equals(RapidActivity.class);
+	}
+	
 	public void injectCommonThings() {
 		final Intent intent = activity.getIntent();
 		final Bundle extras = (intent == null ? null : intent.getExtras());
 		
 		Class<?> cls = memberContainer.getClass();
 		
-		while (cls != null && !cls.equals(RapidActivity.class)) {
+		while (cls != null && !isClassRoot(cls)) {
 			// Fields
 			
 			for (Field field: cls.getDeclaredFields()) {
@@ -192,21 +194,6 @@ public abstract class Injector {
 							}
 						}
 					}
-				}
-				
-				// @InstanceState
-
-				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
-				if (instanceState != null) {
-					String key = instanceState.value();
-					if (key.length() == 0) {
-						key = field.getName();
-					}
-					
-					if (instanceStates == null) {
-						instanceStates = new LinkedList<KeyValueEntry<Field,String>>();
-					}
-					instanceStates.add(new KeyValueEntry<Field, String>(field, key));
 				}
 			}
 			
@@ -591,42 +578,61 @@ public abstract class Injector {
 	}
 	
 	public void restoreInstanceStates(Bundle bundle) {
-		if (instanceStates == null) return;
-		
-		for (KeyValueEntry<Field, String> entry: instanceStates) {
-			final Field field = entry.getKey();
-			final Object value = bundle.get(entry.getValue());
+		Class<?> cls = memberContainer.getClass();
+		while (cls != null && !isClassRoot(cls)) {
+			for (Field field: cls.getFields()) {
+				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
+				if (instanceState == null) continue;
+				
+				String key = instanceState.value();
+				if (key.length() == 0) {
+					key = field.getName();
+				}
+				
+				final Object value = bundle.get(key);
+				
+				if (value != null) {
+					try {
+						field.setAccessible(true);
+						field.set(memberContainer, value);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					}
+				}
+			}
 			
-			if (value != null) {
-				field.setAccessible(true);
+			cls = cls.getSuperclass();
+		}
+	}
+	
+	public void saveInstanceStates(Bundle bundle) {
+		Class<?> cls = memberContainer.getClass();
+		while (cls != null && !isClassRoot(cls)) {
+			for (Field field: cls.getFields()) {
+				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
+				if (instanceState == null) continue;
+				
+				String key = instanceState.value();
+				if (key.length() == 0) {
+					key = field.getName();
+				}
+				
 				try {
-					field.set(memberContainer, value);
+					field.setAccessible(true);
+					final Object value = field.get(memberContainer);
+					if (value != null) {
+						putIntoBundle(bundle, key, value);
+					}
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {
 					e.printStackTrace();
 				}
 			}
-		}
-	}
-	
-	public void saveInstanceStates(Bundle bundle) {
-		if (instanceStates == null) return;
-		
-		for (KeyValueEntry<Field, String> entry: instanceStates) {
-			final String key = entry.getValue();
-			final Field field = entry.getKey();
 			
-			try {
-				field.setAccessible(true);
-				final Object value = field.get(memberContainer);
-
-				putIntoBundle(bundle, key, value);
-			} catch (IllegalAccessException e1) {
-				e1.printStackTrace();
-			} catch (IllegalArgumentException e1) {
-				e1.printStackTrace();
-			}
+			cls = cls.getSuperclass();
 		}
 	}
 	
