@@ -235,7 +235,7 @@ public abstract class Injector {
 							public void onReceive(Context context, Intent intent) {
 								try {
 									method.setAccessible(true);
-									method.invoke(memberContainer, context, intent);
+									method.invoke(memberContainer, intent);
 								} catch (IllegalAccessException e) {
 									e.printStackTrace();
 								} catch (IllegalArgumentException e) {
@@ -251,12 +251,11 @@ public abstract class Injector {
 							public void onReceive(Context context, Intent intent) {
 								final Bundle extras = (intent == null ? null : intent.getExtras());
 								
-								final Object[] args = new Object[2 + extraKeys.length];
-								args[0] = context;
-								args[1] = intent;
+								final Object[] args = new Object[1 + extraKeys.length];
+								args[0] = intent;
 								
 								for (int i = 0; i < extraKeys.length; ++i) {
-									args[i + 2] = extras.get(extraKeys[i]);
+									args[i + 1] = extras.get(extraKeys[i]);
 								}
 								
 								try {
