@@ -1,5 +1,6 @@
 package rapidui;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import rapidui.annotation.FullScreen;
@@ -12,6 +13,7 @@ import android.content.res.Resources;
 import android.util.SparseArray;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.Window;
 import android.view.WindowManager;
 
@@ -114,7 +116,28 @@ public class ActivityInjector extends Injector {
 		handlerList.put(id, method);
 	}
 	
-	public Method getMenuItemClickHandler(int id) {
+	private Method getMenuItemClickHandler(int id) {
 		return (menuItemClickHandlers == null ? null : menuItemClickHandlers.get(id));
+	}
+	
+	public boolean onOptionsItemSelected(MenuItem item) {
+		final int id = item.getItemId();
+		if (id != 0) {
+			final Method method = getMenuItemClickHandler(id);
+			if (method != null) {
+				try {
+					method.setAccessible(true);
+					return (Boolean) method.invoke(memberContainer, item);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
+		return false;
 	}
 }

@@ -1,6 +1,6 @@
 package rapidui;
 
-import rapidui.test.R;
+import rapidui.test.unittest.R;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.test.SingleLaunchActivityTestCase;
@@ -12,7 +12,7 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 	private TestActivity activity;
 	
 	public BasicTest() {
-		super("rapidui.test", TestActivity.class);
+		super("rapidui.test.unittest", TestActivity.class);
 	}
 	
 	@Override

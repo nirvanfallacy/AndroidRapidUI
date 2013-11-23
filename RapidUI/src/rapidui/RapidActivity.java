@@ -1,8 +1,5 @@
 package rapidui;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -15,7 +12,49 @@ public class RapidActivity extends android.app.Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		injector.injectCommonThings();
 		injector.injectActivity();
+		injector.registerReceiversOnCreate();
+		
+		if (savedInstanceState != null) {
+			injector.restoreInstanceStates(savedInstanceState);
+		}
+	}
+	
+	@Override
+	protected void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		injector.saveInstanceStates(outState);
+	}
+	
+	@Override
+	protected void onDestroy() {
+		injector.unregisterReceiversOnDestroy();
+		super.onDestroy();
+	}
+	
+	@Override
+	protected void onStart() {
+		super.onStart();
+		injector.registerReceiversOnStart();
+	}
+	
+	@Override
+	protected void onStop() {
+		super.onStop();
+		injector.unregisterReceiversOnStop();
+	}
+	
+	@Override
+	protected void onResume() {
+		super.onResume();
+		injector.registerReceiversOnResume();
+	}
+	
+	@Override
+	protected void onPause() {
+		super.onPause();
+		injector.unregisterReceiversOnPause();
 	}
 	
 	@Override
@@ -44,23 +83,6 @@ public class RapidActivity extends android.app.Activity {
 	
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-		final int id = item.getItemId();
-		if (id != 0) {
-			final Method method = injector.getMenuItemClickHandler(id);
-			if (method != null) {
-				try {
-					method.setAccessible(true);
-					return (Boolean) method.invoke(this, item);
-				} catch (IllegalAccessException e) {
-					e.printStackTrace();
-				} catch (IllegalArgumentException e) {
-					e.printStackTrace();
-				} catch (InvocationTargetException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		
-		return super.onOptionsItemSelected(item);
+		return (injector.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
 	}
 }

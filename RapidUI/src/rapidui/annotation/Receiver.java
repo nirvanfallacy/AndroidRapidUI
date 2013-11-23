@@ -8,7 +8,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Receiver {
-	public String[] value();
+	public String[] value() default {};
+	public String[] action() default {};
 	public String[] extra() default {};
 	public String[] category() default {};
+	public Lifecycle lifecycle() default Lifecycle.START;
 }

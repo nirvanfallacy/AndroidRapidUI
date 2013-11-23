@@ -6,7 +6,7 @@ import rapidui.annotation.LayoutElement;
 import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.SystemService;
 import rapidui.annotation.eventhandler.OnClick;
-import rapidui.test.R;
+import rapidui.test.unittest.R;
 import android.app.AlarmManager;
 import android.location.LocationManager;
 import android.media.AudioManager;
