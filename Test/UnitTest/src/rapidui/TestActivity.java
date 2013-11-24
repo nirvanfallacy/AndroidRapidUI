@@ -42,8 +42,11 @@ public class TestActivity extends RapidActivity {
 	float testDimen;
 	@Resource(id=R.dimen.test_dimen, type=ResourceType.DIMENSION_OFFSET) 
 	int testDimenOffset;
-	@Resource(id=R.dimen.test_dimen)
+	@Resource(R.dimen.test_dimen)
 	int testDimenSize;
+	
+	@Resource
+	String appName;
 
 	@EventHandler
 	boolean actionSettings_MenuItemClick(MenuItem item) {

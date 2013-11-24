@@ -44,6 +44,7 @@ import rapidui.resource.DimensionLoader;
 import rapidui.resource.DrawableLoader;
 import rapidui.resource.IntegerLoader;
 import rapidui.resource.ResourceLoader;
+import rapidui.resource.StringLoader;
 import rapidui.util.HashMap3Int;
 import rapidui.util.KeyValueEntry;
 import android.accounts.AccountManager;
@@ -780,5 +781,6 @@ public abstract class Injector {
 		resourceLoaders.add(new ColorLoader());
 		resourceLoaders.add(new DimensionLoader());
 		resourceLoaders.add(new IntegerLoader());
+		resourceLoaders.add(new StringLoader());
 	}
 }

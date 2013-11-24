@@ -83,5 +83,7 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 		assertEquals(res.getDimension(R.dimen.test_dimen), activity.testDimen);
 		assertEquals(res.getDimensionPixelOffset(R.dimen.test_dimen), activity.testDimenOffset);
 		assertEquals(res.getDimensionPixelSize(R.dimen.test_dimen), activity.testDimenSize);
+		
+		assertEquals(res.getString(R.string.app_name), activity.appName);
 	}
 }
