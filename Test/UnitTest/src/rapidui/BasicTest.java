@@ -22,16 +22,16 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 	}
 	
 	public void testCamelCaseToUnderlinedLowerCase() {
-		assertEquals("test", ActivityInjector.toLowerUnderscored("test"));
-		assertEquals("camel_case", ActivityInjector.toLowerUnderscored("camelCase"));
-		assertEquals("pascal_case", ActivityInjector.toLowerUnderscored("PascalCase"));
-		assertEquals("underlined_camel_case", ActivityInjector.toLowerUnderscored("Underlined_Camel_Case"));
-		assertEquals("xml_document", ActivityInjector.toLowerUnderscored("XMLDocument"));
-		assertEquals("simple_xml_parser", ActivityInjector.toLowerUnderscored("SimpleXMLParser"));
-		assertEquals("ab123", ActivityInjector.toLowerUnderscored("AB123"));
-		assertEquals("ab123", ActivityInjector.toLowerUnderscored("ab123"));
-		assertEquals("a_b123", ActivityInjector.toLowerUnderscored("aB123"));
-		assertEquals("html4_document", ActivityInjector.toLowerUnderscored("HTML4Document"));
+		assertEquals("test", ResourceUtils.toLowerUnderscored("test"));
+		assertEquals("camel_case", ResourceUtils.toLowerUnderscored("camelCase"));
+		assertEquals("pascal_case", ResourceUtils.toLowerUnderscored("PascalCase"));
+		assertEquals("underlined_camel_case", ResourceUtils.toLowerUnderscored("Underlined_Camel_Case"));
+		assertEquals("xml_document", ResourceUtils.toLowerUnderscored("XMLDocument"));
+		assertEquals("simple_xml_parser", ResourceUtils.toLowerUnderscored("SimpleXMLParser"));
+		assertEquals("ab123", ResourceUtils.toLowerUnderscored("AB123"));
+		assertEquals("ab123", ResourceUtils.toLowerUnderscored("ab123"));
+		assertEquals("a_b123", ResourceUtils.toLowerUnderscored("aB123"));
+		assertEquals("html4_document", ResourceUtils.toLowerUnderscored("HTML4Document"));
 	}
 
 	public void testMenu() {

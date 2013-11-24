@@ -16,6 +16,8 @@ import rapidui.annotation.InstanceState;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Lifecycle;
 import rapidui.annotation.Receiver;
+import rapidui.annotation.Resource;
+import rapidui.annotation.ResourceType;
 import rapidui.annotation.SystemService;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.annotation.eventhandler.OnCreateContextMenu;
@@ -35,6 +37,13 @@ import rapidui.eventhandler.OnKeyRegistrar;
 import rapidui.eventhandler.OnLongClickRegistrar;
 import rapidui.eventhandler.OnMenuItemClickInfo;
 import rapidui.eventhandler.OnTouchRegistrar;
+import rapidui.resource.AnimationLoader;
+import rapidui.resource.AnimatorLoader;
+import rapidui.resource.ColorLoader;
+import rapidui.resource.DimensionLoader;
+import rapidui.resource.DrawableLoader;
+import rapidui.resource.IntegerLoader;
+import rapidui.resource.ResourceLoader;
 import rapidui.util.HashMap3Int;
 import rapidui.util.KeyValueEntry;
 import android.accounts.AccountManager;
@@ -98,6 +107,7 @@ public abstract class Injector {
 			new HashMap<Class<?>, ExternalHandlerInfo>();
 	private static HashMap<String, Class<?>> annotationNameMatch;
 	private static HashMap<Class<?>, String> systemServices;
+	private static LinkedList<ResourceLoader> resourceLoaders;
 	
 	static {
 		registrars.put(OnClick.class, new OnClickRegistrar());
@@ -130,6 +140,7 @@ public abstract class Injector {
 	}
 	
 	public void injectCommonThings() {
+		final Resources res = activity.getResources();
 		final Intent intent = activity.getIntent();
 		final Bundle extras = (intent == null ? null : intent.getExtras());
 		
@@ -142,10 +153,11 @@ public abstract class Injector {
 				// @SystemService
 				
 				if (field.isAnnotationPresent(SystemService.class)) {
+					final Class<?> fieldType = field.getType();
+					
 					Object service = null;
 					
-					final Class<?> fieldClass = field.getType();
-					if (fieldClass.equals(BluetoothAdapter.class)) {
+					if (fieldType.equals(BluetoothAdapter.class)) {
 						if (Build.VERSION.SDK_INT >= 18) {
 							service = activity.getSystemService(Context.BLUETOOTH_SERVICE);
 						} else {
@@ -156,7 +168,7 @@ public abstract class Injector {
 					} else {
 						initSystemServiceList();
 						
-						final String serviceName = systemServices.get(fieldClass);
+						final String serviceName = systemServices.get(fieldType);
 						service = activity.getSystemService(serviceName);
 					}
 
@@ -192,6 +204,63 @@ public abstract class Injector {
 							} catch (IllegalArgumentException e) {
 								e.printStackTrace();
 							}
+						}
+					}
+				}
+				
+				// @Resource
+				
+				final Resource resource = field.getAnnotation(Resource.class);
+				if (resource != null) {
+					initResourceLoaders();
+					
+					int id = resource.id();
+					if (id == 0) {
+						id = resource.value();
+					}
+					
+					Object value = null;
+					
+					final ResourceType resType = resource.type();
+					if (resType == ResourceType.NONE) {
+						// Infer the resource type from some hints.
+
+						if (id != 0) {
+							final Class<?> fieldType = field.getType();
+							final String typeName = res.getResourceTypeName(id);
+							
+							for (ResourceLoader loader: resourceLoaders) {
+								value = loader.load(activity, typeName, id, fieldType);
+								if (value != null) break;
+							}
+						} else {
+							final String name = field.getName();
+							final Class<?> fieldType = field.getType();
+							
+							for (ResourceLoader loader: resourceLoaders) {
+								value = loader.load(activity, name, fieldType);
+								if (value != null) break;
+							}
+						}
+					} else {
+						// Resource type has been set by user.
+
+						final String fieldName = field.getName();
+						
+						for (ResourceLoader loader: resourceLoaders) {
+							value = loader.load(activity, resType, id, fieldName);
+							if (value != null) break;
+						}
+					}
+					
+					if (value != null) {
+						try {
+							field.setAccessible(true);
+							field.set(memberContainer, value);
+						} catch (IllegalAccessException e) {
+							e.printStackTrace();
+						} catch (IllegalArgumentException e) {
+							e.printStackTrace();
 						}
 					}
 				}
@@ -310,7 +379,7 @@ public abstract class Injector {
 							}
 						}
 
-						id = res.getIdentifier(toLowerUnderscored(name), "id", packageName);
+						id = res.getIdentifier(ResourceUtils.toLowerUnderscored(name), "id", packageName);
 						if (id == 0) {
 							id = res.getIdentifier(name, "id", packageName);
 						}
@@ -348,7 +417,7 @@ public abstract class Injector {
 							final String idName = name.substring(0, underscoreIndex);
 							final String annotationName = name.substring(underscoreIndex + 1);
 
-							int id = res.getIdentifier(toLowerUnderscored(idName), "id", packageName);
+							int id = res.getIdentifier(ResourceUtils.toLowerUnderscored(idName), "id", packageName);
 							if (id == 0) {
 								id = res.getIdentifier(idName, "id", packageName);
 							}
@@ -408,77 +477,6 @@ public abstract class Injector {
 				registrar.registerEventListener(target, memberContainer, methods);
 			}
 		}
-	}
-	
-	static String toLowerUnderscored(String s) {
-		final int STATE_NONE = 0;
-		final int STATE_UPPER_CASE = 1;
-		final int STATE_LOWER_CASE = 2;
-		
-		final StringBuilder sb = new StringBuilder();
-
-		int upperStartIndex = -1;
-		int state = STATE_NONE;
-		
-		for (int i = 0; i < s.length(); ++i) {
-			final char c = s.charAt(i);
-			
-			final int newState;
-			if (Character.isUpperCase(c)) {
-				newState = STATE_UPPER_CASE;
-			} else if (Character.isLowerCase(c)) {
-				newState = STATE_LOWER_CASE;
-			} else {
-				if (c == '_') {
-					newState = STATE_NONE;
-				} else {
-					newState = state;
-				}
-			}
-			
-			switch (newState) {
-			case STATE_UPPER_CASE:
-				if (state != STATE_UPPER_CASE) {
-					upperStartIndex = i;
-					if (state == STATE_LOWER_CASE) {
-						sb.append('_');
-					}
-				}
-				break;
-				
-			case STATE_LOWER_CASE:
-				if (state == STATE_UPPER_CASE) {
-					if (upperStartIndex < i - 1) {
-						for (int j = upperStartIndex; j < i - 1; ++j) {
-							sb.append(Character.toLowerCase(s.charAt(j)));
-						}
-						sb.append('_');
-					}
-					
-					sb.append(Character.toLowerCase(s.charAt(i - 1)))
-					  .append(c);
-					
-					upperStartIndex = -1;
-				} else {
-					sb.append(c);
-				}
-				break;
-				
-			case STATE_NONE:
-				sb.append(c);
-				break;
-			}
-			
-			state = newState;
-		}
-		
-		if (upperStartIndex >= 0) {
-			for (int i = upperStartIndex; i < s.length(); ++i) {
-				sb.append(Character.toLowerCase(s.charAt(i)));
-			}
-		}
-		
-		return sb.toString();
 	}
 	
 	public void registerExternalHandler(int type, int id, Method method) {
@@ -580,7 +578,7 @@ public abstract class Injector {
 	public void restoreInstanceStates(Bundle bundle) {
 		Class<?> cls = memberContainer.getClass();
 		while (cls != null && !isClassRoot(cls)) {
-			for (Field field: cls.getFields()) {
+			for (Field field: cls.getDeclaredFields()) {
 				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
 				if (instanceState == null) continue;
 				
@@ -610,7 +608,7 @@ public abstract class Injector {
 	public void saveInstanceStates(Bundle bundle) {
 		Class<?> cls = memberContainer.getClass();
 		while (cls != null && !isClassRoot(cls)) {
-			for (Field field: cls.getFields()) {
+			for (Field field: cls.getDeclaredFields()) {
 				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
 				if (instanceState == null) continue;
 				
@@ -769,5 +767,18 @@ public abstract class Injector {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	private static void initResourceLoaders() {
+		if (resourceLoaders != null) return;
+		
+		resourceLoaders = new LinkedList<ResourceLoader>();
+		
+		resourceLoaders.add(new DrawableLoader());
+		resourceLoaders.add(new AnimationLoader());
+		resourceLoaders.add(new AnimatorLoader());
+		resourceLoaders.add(new ColorLoader());
+		resourceLoaders.add(new DimensionLoader());
+		resourceLoaders.add(new IntegerLoader());
 	}
 }

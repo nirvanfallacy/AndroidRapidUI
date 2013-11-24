@@ -5,10 +5,9 @@ import java.util.Random;
 import rapidui.RapidActivity;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
-import rapidui.annotation.Receiver;
 import rapidui.annotation.Lifecycle;
+import rapidui.annotation.Receiver;
 import rapidui.annotation.eventhandler.OnClick;
-import android.content.Context;
 import android.content.Intent;
 import android.view.View;
 import android.widget.TextView;
@@ -33,7 +32,7 @@ public class MainActivity extends RapidActivity {
 	@Receiver(action=ACTION_BROADCAST_TEST,
 			  lifecycle=Lifecycle.RESUME,
 			  extra={"operator", "a", "b"})
-	void receiver(Context context, Intent intent, String op, int a, int b) {
+	void receiver(Intent intent, String op, int a, int b) {
 		int result;
 		if (op.equals("+")) {
 			result = a + b;

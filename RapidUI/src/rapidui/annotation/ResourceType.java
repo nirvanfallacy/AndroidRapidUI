@@ -1,0 +1,14 @@
+package rapidui.annotation;
+
+public enum ResourceType {
+	ANIMATION,
+	ANIMATOR,
+	COLOR,
+	DIMENSION,
+	DIMENSION_LOCATION,
+	DIMENSION_SIZE,
+	DRAWABLE,
+	INTEGER,
+	NONE,
+	STRING
+}
