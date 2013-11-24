@@ -4,6 +4,8 @@ import rapidui.annotation.EventHandler;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.OptionsMenu;
+import rapidui.annotation.Resource;
+import rapidui.annotation.ResourceType;
 import rapidui.annotation.SystemService;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.test.unittest.R;
@@ -32,6 +34,16 @@ public class TestActivity extends RapidActivity {
 	@SystemService AlarmManager alarmManager;
 	@SystemService AudioManager audioManager;
 	@SystemService LocationManager locationManager;
+	
+	@Resource                         int testInteger;
+	@Resource(R.integer.test_integer) int testInteger2;
+	
+	@Resource
+	float testDimen;
+	@Resource(id=R.dimen.test_dimen, type=ResourceType.DIMENSION_OFFSET) 
+	int testDimenOffset;
+	@Resource(id=R.dimen.test_dimen)
+	int testDimenSize;
 
 	@EventHandler
 	boolean actionSettings_MenuItemClick(MenuItem item) {

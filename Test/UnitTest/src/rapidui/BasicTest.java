@@ -3,6 +3,7 @@ package rapidui;
 import rapidui.test.unittest.R;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.res.Resources;
 import android.test.SingleLaunchActivityTestCase;
 import android.test.UiThreadTest;
 import android.view.KeyEvent;
@@ -70,5 +71,17 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 		activity.button2Clicked = false;
 		assertTrue(activity.button2.performClick());
 		assertTrue(activity.button2Clicked);
+	}
+	
+	public void testResources() {
+		final Resources res = activity.getResources();
+		
+		final int testInteger = res.getInteger(R.integer.test_integer);
+		assertEquals(testInteger, activity.testInteger);
+		assertEquals(testInteger, activity.testInteger2);
+		
+		assertEquals(res.getDimension(R.dimen.test_dimen), activity.testDimen);
+		assertEquals(res.getDimensionPixelOffset(R.dimen.test_dimen), activity.testDimenOffset);
+		assertEquals(res.getDimensionPixelSize(R.dimen.test_dimen), activity.testDimenSize);
 	}
 }

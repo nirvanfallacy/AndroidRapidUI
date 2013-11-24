@@ -47,7 +47,7 @@ public class DimensionLoader extends ResourceLoader {
 			String fieldName) {
 		
 		final boolean isDimension = (resType == ResourceType.DIMENSION);
-		final boolean isDimensionOffset = (resType == ResourceType.DIMENSION_LOCATION);
+		final boolean isDimensionOffset = (resType == ResourceType.DIMENSION_OFFSET);
 		final boolean isDimensionSize = (resType == ResourceType.DIMENSION_SIZE);
 
 		if (isDimension || isDimensionOffset || isDimensionSize) {
