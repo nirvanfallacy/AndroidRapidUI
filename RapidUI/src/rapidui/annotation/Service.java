@@ -8,5 +8,8 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Service {
-
+	public String action() default "";
+	public String packageName() default "";
+	public String className() default "";
+	public Class<?> classType() default Object.class;
 }
