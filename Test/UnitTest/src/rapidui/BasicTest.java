@@ -71,6 +71,10 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 		activity.button2Clicked = false;
 		assertTrue(activity.button2.performClick());
 		assertTrue(activity.button2Clicked);
+		
+		activity.checkbox1checked = false;
+		activity.checkbox1.setChecked(true);
+		assertTrue(activity.checkbox1checked);
 	}
 	
 	public void testResources() {

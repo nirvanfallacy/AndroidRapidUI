@@ -15,6 +15,8 @@ import android.media.AudioManager;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.TextView;
 
 @Layout
@@ -23,6 +25,7 @@ public class TestActivity extends RapidActivity {
 	boolean settingsMenuClicked;
 	boolean button1Clicked;
 	boolean button2Clicked;
+	boolean checkbox1checked;
 	
 	@LayoutElement                        TextView textHelloWorld;
 	@LayoutElement                        TextView mTextHelloWorld;
@@ -30,6 +33,7 @@ public class TestActivity extends RapidActivity {
 	
 	@LayoutElement Button button1;
 	@LayoutElement Button button2;
+	@LayoutElement CheckBox checkbox1;
 	
 	@SystemService AlarmManager alarmManager;
 	@SystemService AudioManager audioManager;
@@ -62,5 +66,10 @@ public class TestActivity extends RapidActivity {
 	@OnClick(R.id.button2)
 	void dontCareAboutMethodName(View v) {
 		button2Clicked = true;
+	}
+	
+	@EventHandler
+	void checkbox1_CheckedChange(CompoundButton buttonView, boolean isChecked) {
+		checkbox1checked = isChecked;
 	}
 }

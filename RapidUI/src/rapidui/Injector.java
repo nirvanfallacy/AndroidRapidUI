@@ -19,6 +19,7 @@ import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
 import rapidui.annotation.SystemService;
+import rapidui.annotation.eventhandler.OnCheckedChange;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.annotation.eventhandler.OnCreateContextMenu;
 import rapidui.annotation.eventhandler.OnDrag;
@@ -29,6 +30,7 @@ import rapidui.annotation.eventhandler.OnMenuItemClick;
 import rapidui.annotation.eventhandler.OnTouch;
 import rapidui.eventhandler.EventHandlerRegistrar;
 import rapidui.eventhandler.ExternalHandlerInfo;
+import rapidui.eventhandler.OnCheckedChangeRegistrar;
 import rapidui.eventhandler.OnClickRegistrar;
 import rapidui.eventhandler.OnCreateContextMenuRegistrar;
 import rapidui.eventhandler.OnDragRegistrar;
@@ -118,6 +120,7 @@ public abstract class Injector {
 		registrars.put(OnKey.class, new OnKeyRegistrar());
 		registrars.put(OnLongClick.class, new OnLongClickRegistrar());
 		registrars.put(OnTouch.class, new OnTouchRegistrar());
+		registrars.put(OnCheckedChange.class, new OnCheckedChangeRegistrar());
 		
 		externalHandlerInfoList.put(OnMenuItemClick.class, new OnMenuItemClickInfo());
 	}
