@@ -30,4 +30,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
     
+    <EditText android:id="@+id/edit_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" 
+        android:inputType="text"/>
+    
 </RelativeLayout>

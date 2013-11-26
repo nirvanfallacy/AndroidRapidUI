@@ -16,12 +16,12 @@ public class OnTouchRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
-		
+
 		final Method method = methods.get(OnTouch.class);
 		
-		((View) target).setOnTouchListener(new View.OnTouchListener() {
+		return new View.OnTouchListener() {
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
 				try {
@@ -37,6 +37,11 @@ public class OnTouchRegistrar extends EventHandlerRegistrar {
 
 				return false;
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnTouchListener((View.OnTouchListener) dispatcher);
 	}
 }

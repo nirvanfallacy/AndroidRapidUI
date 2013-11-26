@@ -13,11 +13,13 @@ import rapidui.test.unittest.R;
 import android.app.AlarmManager;
 import android.location.LocationManager;
 import android.media.AudioManager;
+import android.text.Editable;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.TextView;
 
 @Layout
@@ -32,10 +34,13 @@ public class TestActivity extends RapidActivity {
 	boolean customHandler1Invoked;
 	boolean customHandler2Invoked;
 	
+	String editTextContent;
+	
 	@LayoutElement                        TextView textHelloWorld;
 	@LayoutElement                        TextView mTextHelloWorld;
 	@LayoutElement(R.id.text_hello_world) TextView helloWorld;
 	@LayoutElement                        CustomView customView;
+	@LayoutElement                        EditText editText;
 	
 	@LayoutElement Button button1;
 	@LayoutElement Button button2;
@@ -90,5 +95,10 @@ public class TestActivity extends RapidActivity {
 	@EventHandler
 	void customView_Test2_Test2() {
 		customHandler2Invoked = true;
+	}
+
+	@EventHandler
+	void editText_AfterTextChanged(Editable s) {
+		editTextContent = s.toString();
 	}
 }

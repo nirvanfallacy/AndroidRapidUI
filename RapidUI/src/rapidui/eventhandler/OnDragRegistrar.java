@@ -16,12 +16,11 @@ public class OnDragRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
-		
+
 		final Method method = methods.get(OnDrag.class);
-		
-		((View) target).setOnDragListener(new View.OnDragListener() {
+		return new View.OnDragListener() {
 			@Override
 			public boolean onDrag(View v, DragEvent event) {
 				try {
@@ -37,6 +36,11 @@ public class OnDragRegistrar extends EventHandlerRegistrar {
 				
 				return false;
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnDragListener((View.OnDragListener) dispatcher);
 	}
 }

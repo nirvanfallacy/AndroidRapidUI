@@ -15,12 +15,12 @@ public class OnLongClickRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
-		
+
 		final Method method = methods.get(OnLongClick.class);
 		
-		((View) target).setOnLongClickListener(new View.OnLongClickListener() {
+		return new View.OnLongClickListener() {
 			@Override
 			public boolean onLongClick(View v) {
 				try {
@@ -36,6 +36,11 @@ public class OnLongClickRegistrar extends EventHandlerRegistrar {
 
 				return false;
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnLongClickListener((View.OnLongClickListener) dispatcher);
 	}
 }

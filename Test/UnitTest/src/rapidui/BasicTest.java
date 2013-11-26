@@ -87,6 +87,10 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 		activity.customHandler2Invoked = false;
 		activity.customView.test2();
 		assertTrue(activity.customHandler2Invoked);
+		
+		activity.editTextContent = null;
+		activity.editText.setText("asdf");
+		assertEquals("asdf", activity.editTextContent);
 	}
 	
 	public void testResources() {

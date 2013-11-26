@@ -15,12 +15,12 @@ public class OnCheckedChangeRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
 		
 		final Method method = methods.get(OnCheckedChange.class);
 		
-		((CompoundButton) target).setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+		return new CompoundButton.OnCheckedChangeListener() {
 			@Override
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 				try {
@@ -34,6 +34,11 @@ public class OnCheckedChangeRegistrar extends EventHandlerRegistrar {
 					e.printStackTrace();
 				}
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((CompoundButton) target).setOnCheckedChangeListener((CompoundButton.OnCheckedChangeListener) dispatcher);
 	}
 }

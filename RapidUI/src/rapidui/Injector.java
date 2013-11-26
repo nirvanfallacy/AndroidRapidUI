@@ -22,6 +22,8 @@ import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
 import rapidui.annotation.SystemService;
 import rapidui.annotation.eventhandler.On;
+import rapidui.annotation.eventhandler.OnAfterTextChanged;
+import rapidui.annotation.eventhandler.OnBeforeTextChanged;
 import rapidui.annotation.eventhandler.OnCheckedChange;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.annotation.eventhandler.OnCreateContextMenu;
@@ -30,6 +32,7 @@ import rapidui.annotation.eventhandler.OnFocusChange;
 import rapidui.annotation.eventhandler.OnKey;
 import rapidui.annotation.eventhandler.OnLongClick;
 import rapidui.annotation.eventhandler.OnMenuItemClick;
+import rapidui.annotation.eventhandler.OnTextChanged;
 import rapidui.annotation.eventhandler.OnTouch;
 import rapidui.eventhandler.EventHandlerRegistrar;
 import rapidui.eventhandler.ExternalHandlerInfo;
@@ -42,6 +45,8 @@ import rapidui.eventhandler.OnKeyRegistrar;
 import rapidui.eventhandler.OnLongClickRegistrar;
 import rapidui.eventhandler.OnMenuItemClickInfo;
 import rapidui.eventhandler.OnTouchRegistrar;
+import rapidui.eventhandler.TextWatcherRegistrar;
+import rapidui.eventhandler.UnregisterableEventHandlerRegistrar;
 import rapidui.resource.AnimationLoader;
 import rapidui.resource.AnimatorLoader;
 import rapidui.resource.ColorLoader;
@@ -51,6 +56,7 @@ import rapidui.resource.IntegerLoader;
 import rapidui.resource.ResourceLoader;
 import rapidui.resource.StringLoader;
 import rapidui.util.HashMap3Int;
+import rapidui.util.HashMap4Int;
 import rapidui.util.KeyValueEntry;
 import android.accounts.AccountManager;
 import android.app.Activity;
@@ -125,16 +131,21 @@ public abstract class Injector {
 		registrars.put(OnTouch.class, new OnTouchRegistrar());
 		registrars.put(OnCheckedChange.class, new OnCheckedChangeRegistrar());
 		
+		final TextWatcherRegistrar textWatcherRegistrar = new TextWatcherRegistrar();
+		registrars.put(OnTextChanged.class, textWatcherRegistrar);
+		registrars.put(OnBeforeTextChanged.class, textWatcherRegistrar);
+		registrars.put(OnAfterTextChanged.class, textWatcherRegistrar);
+		
 		externalHandlerInfoList.put(OnMenuItemClick.class, new OnMenuItemClickInfo());
 	}
 	
 	protected Activity activity;
 	protected Object memberContainer;
 	protected ViewFinder viewFinder;
-	
-	private LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receiversOnCreate;
-	private LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receiversOnStart;
-	private LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receiversOnResume;
+
+	private Lifecycle currentLifecycle;
+	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
+	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
 	
 	public Injector(Activity activity, Object memberContainer, ViewFinder viewFinder) {
 		this.activity = activity;
@@ -278,6 +289,10 @@ public abstract class Injector {
 			for (final Method method: cls.getDeclaredMethods()) {
 				final Receiver receiver = (Receiver) method.getAnnotation(Receiver.class);
 				if (receiver != null) {
+					if (receivers == null) {
+						receivers = new HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>>();
+					}
+					
 					final IntentFilter filter = new IntentFilter();
 					for (String action: receiver.value()) {
 						filter.addAction(action);
@@ -336,22 +351,15 @@ public abstract class Injector {
 					}
 					
 					final Lifecycle lifecycle = receiver.lifecycle();
-					if (lifecycle == Lifecycle.CREATE) {
-						if (receiversOnCreate == null) {
-							receiversOnCreate = new LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>();
-						}
-						receiversOnCreate.add(new KeyValueEntry<IntentFilter, BroadcastReceiver>(filter, broadcastReceiver));
-					} else if (lifecycle == Lifecycle.RESUME) {
-						if (receiversOnResume == null) {
-							receiversOnResume = new LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>();
-						}
-						receiversOnResume.add(new KeyValueEntry<IntentFilter, BroadcastReceiver>(filter, broadcastReceiver));
-					} else {
-						if (receiversOnStart == null) {
-							receiversOnStart = new LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>();
-						}
-						receiversOnStart.add(new KeyValueEntry<IntentFilter, BroadcastReceiver>(filter, broadcastReceiver));
+					
+					LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> list =
+							receivers.get(lifecycle);
+					if (list == null) {
+						list = new LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>();
+						receivers.put(lifecycle, list);
 					}
+					
+					list.add(new KeyValueEntry<IntentFilter, BroadcastReceiver>(filter, broadcastReceiver));
 				}
 			}
 			
@@ -363,10 +371,20 @@ public abstract class Injector {
 		final SparseArray<View> viewMap = new SparseArray<View>();
 		
 		// [viewId][registrar][annotation][method]
-		HashMap3Int<EventHandlerRegistrar, Class<?>, Method> methodMap = null;
+		HashMap3Int<EventHandlerRegistrar, Class<?>, Method> eventMap =
+				new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
+
+		// [viewId][registrar][lifecycle][annotation][method]
+		HashMap4Int<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap =
+				new HashMap4Int<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method>();
 		
 		// [viewId][eventCategoryName][eventName][method]
-		HashMap3Int<String, String, Method> customEvents = null;
+		HashMap3Int<String, String, Method> customEvents =
+				new HashMap3Int<String, String, Method>();
+		
+		if (unregEvents != null) {
+			unregEvents.clear();
+		}
 
 		Class<?> cls = memberContainer.getClass();
 		
@@ -414,10 +432,6 @@ public abstract class Injector {
 					// @On
 					
 					if (annotationType.equals(On.class)) {
-						if (customEvents == null) {
-							customEvents = new HashMap3Int<String, String, Method>();							
-						}
-						
 						final On on = (On) annotation;
 						
 						final String event = on.event();
@@ -456,14 +470,24 @@ public abstract class Injector {
 								
 								final Class<?> annotationType2 = annotationNameMatch.get(annotationName);
 								if (annotationType2 != null) {
+									// If it is a view event handler
+									
 									final EventHandlerRegistrar registrar = registrars.get(annotationType2);
 									if (registrar != null) {
-										if (methodMap == null) {
-											methodMap = new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
+										if (registrar instanceof UnregisterableEventHandlerRegistrar) {
+											final UnregisterableEventHandlerRegistrar registrar2 =
+													(UnregisterableEventHandlerRegistrar) registrar;
+											final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
+											
+											unregEventMap.put(id, registrar2, lifecycle, annotationType2, method);
+										} else {
+											eventMap.put(id, registrar, annotationType2, method);
 										}
-										methodMap.put(id, registrar, annotationType2, method);
+										
 										continue;
 									}
+									
+									// If it is an external event handler
 									
 									final ExternalHandlerInfo info = externalHandlerInfoList.get(annotationType2);
 									if (info != null) {
@@ -487,10 +511,6 @@ public abstract class Injector {
 									eventName = "";
 								}
 								
-								if (customEvents == null) {
-									customEvents = new HashMap3Int<String, String, Method>();							
-								}
-								
 								customEvents.put(id, eventCategory, eventName, method);
 								continue;
 							}
@@ -501,12 +521,18 @@ public abstract class Injector {
 					
 					final EventHandlerRegistrar registrar = registrars.get(annotationType);
 					if (registrar != null) {
-						if (methodMap == null) {
-							methodMap = new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
-						}
-						
-						for (int id: registrar.getTargetIds(annotation)) {
-							methodMap.put(id, registrar, annotationType, method);
+						if (registrar instanceof UnregisterableEventHandlerRegistrar) {
+							final UnregisterableEventHandlerRegistrar registrar2 =
+									(UnregisterableEventHandlerRegistrar) registrar;
+							final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
+							
+							for (int id: registrar.getTargetIds(annotation)) {
+								unregEventMap.put(id, registrar2, lifecycle, annotationType, method);
+							}
+						} else {
+							for (int id: registrar.getTargetIds(annotation)) {
+								eventMap.put(id, registrar, annotationType, method);
+							}
 						}
 						continue;
 					}
@@ -527,33 +553,60 @@ public abstract class Injector {
 		
 		// Register event handlers
 		
-		if (methodMap != null) {
-			for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: methodMap) {
-				final int id = entry.getKey();
+		for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
+			final int id = entry.getKey();
+			final Object target = findViewById(viewFinder, id, viewMap);
+			
+			for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
+				final EventHandlerRegistrar registrar = entry2.getKey();
+				final HashMap<Class<?>, Method> methods = entry2.getValue();
 				
-				for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
-					final EventHandlerRegistrar registrar = entry2.getKey();
-					final HashMap<Class<?>, Method> methods = entry2.getValue();
+				final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
+				registrar.registerEventListener(target, dispatcher);
+			}
+		}
+		
+		// Register unregisterable event handlers
+		
+		if (!unregEventMap.isEmpty() && unregEvents == null) {
+			unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
+		}
+		
+		for (Entry<Integer, HashMap<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>>> entry: unregEventMap) {
+			final int id = entry.getKey();
+			final Object target = findViewById(viewFinder, id, viewMap);
+			
+			for (Entry<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
+				final UnregisterableEventHandlerRegistrar registrar = entry2.getKey();
+				
+				for (Entry<Lifecycle, HashMap<Class<?>, Method>> entry3: entry2.getValue().entrySet()) {
+					final Lifecycle lifecycle = entry3.getKey();
+					final HashMap<Class<?>, Method> methods = entry3.getValue();
 					
-					final Object target = findViewById(viewFinder, id, viewMap);
-					registrar.registerEventListener(target, memberContainer, methods);
+					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
+					
+					LinkedList<UnregisterableEventHandler> list = unregEvents.get(lifecycle);
+					if (list == null) {
+						list = new LinkedList<UnregisterableEventHandler>();
+						unregEvents.put(lifecycle, list);
+					}
+					
+					list.add(new UnregisterableEventHandler(registrar, target, dispatcher));
 				}
 			}
 		}
 		
 		// Register custom event handlers
 		
-		if (customEvents != null) {
-			for (Entry<Integer, HashMap<String, HashMap<String, Method>>> entry: customEvents) {
-				final int id = entry.getKey();
+		for (Entry<Integer, HashMap<String, HashMap<String, Method>>> entry: customEvents) {
+			final int id = entry.getKey();
+			final Object target = findViewById(viewFinder, id, viewMap);
+			
+			for (Entry<String, HashMap<String, Method>> entry2: entry.getValue().entrySet()) {
+				final String category = entry2.getKey();
+				final HashMap<String, Method> methods = entry2.getValue();
 				
-				for (Entry<String, HashMap<String, Method>> entry2: entry.getValue().entrySet()) {
-					final String category = entry2.getKey();
-					final HashMap<String, Method> methods = entry2.getValue();
-					
-					final Object target = findViewById(viewFinder, id, viewMap);
-					registerCustomEventHandler(target, memberContainer, category, methods);
-				}
+				registerCustomEventHandler(target, memberContainer, category, methods);
 			}
 		}
 	}
@@ -870,38 +923,13 @@ public abstract class Injector {
 		}
 	}
 	
-	public void registerReceiversOnCreate() {
-		if (receiversOnCreate == null) return;
-		registerReceivers(receiversOnCreate);
-	}
-
-	public void registerReceiversOnStart() {
-		if (receiversOnStart == null) return;
-		registerReceivers(receiversOnStart);
-	}
-
-	public void registerReceiversOnResume() {
-		if (receiversOnResume == null) return;
-		registerReceivers(receiversOnResume);
-	}
-	
-	public void unregisterReceiversOnDestroy() {
-		if (receiversOnCreate == null) return;
-		unregisterReceivers(receiversOnCreate);
-	}
-
-	public void unregisterReceiversOnStop() {
-		if (receiversOnStart == null) return;
-		unregisterReceivers(receiversOnStart);
-	}
-
-	public void unregisterReceiversOnPause() {
-		if (receiversOnResume == null) return;
-		unregisterReceivers(receiversOnResume);
-	}
-	
-	private void registerReceivers(LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receivers) {
-		for (KeyValueEntry<IntentFilter, BroadcastReceiver> entry: receivers) {
+	public void registerReceivers(Lifecycle lifecycle) {
+		if (receivers == null) return;
+		
+		final LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> list = receivers.get(lifecycle);
+		if (list == null) return;
+		
+		for (KeyValueEntry<IntentFilter, BroadcastReceiver> entry: list) {
 			final IntentFilter filter = entry.getKey();
 			final BroadcastReceiver receiver = entry.getValue();
 			
@@ -909,13 +937,54 @@ public abstract class Injector {
 		}
 	}
 
-	private void unregisterReceivers(LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> receivers) {
-		for (KeyValueEntry<IntentFilter, BroadcastReceiver> entry: receivers) {
+	public void unregisterReceivers(Lifecycle lifecycle) {
+		if (receivers == null) return;
+
+		final LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> list = receivers.get(lifecycle);
+		if (list == null) return;
+		
+		for (KeyValueEntry<IntentFilter, BroadcastReceiver> entry: list) {
 			final BroadcastReceiver receiver = entry.getValue();
 			try {
 				activity.unregisterReceiver(receiver);
 			} catch (Exception e) {
 				e.printStackTrace();
+			}
+		}
+	}
+	
+	public void registerListeners(Lifecycle lifecycle) {
+		if (unregEvents == null) return;
+		
+		final LinkedList<UnregisterableEventHandler> handlers = unregEvents.get(lifecycle);
+		if (handlers == null) return;
+		
+		for (UnregisterableEventHandler handler: handlers) {
+			handler.registrar.registerEventListener(handler.target, handler.dispatcher);
+		}
+	}
+	
+	public void unregisterListeners(Lifecycle lifecycle) {
+		if (unregEvents == null) return;
+		
+		final LinkedList<UnregisterableEventHandler> handlers = unregEvents.get(lifecycle);
+		if (handlers == null) return;
+
+		for (UnregisterableEventHandler handler: handlers) {
+			handler.registrar.unregisterEventListener(handler.target, handler.dispatcher);
+		}
+	}
+	
+	public void unregisterAllListeners() {
+		unregisterListeners(Lifecycle.RESUME);
+		unregisterListeners(Lifecycle.START);
+		unregisterListeners(Lifecycle.CREATE);
+	}
+	
+	public void registerListenersToCurrentLifecycle() {
+		for (Lifecycle lifecycle: Lifecycle.values()) {
+			if (lifecycle.getValue() <= currentLifecycle.getValue()) {
+				registerListeners(lifecycle);
 			}
 		}
 	}
@@ -932,5 +1001,13 @@ public abstract class Injector {
 		resourceLoaders.add(new DimensionLoader());
 		resourceLoaders.add(new IntegerLoader());
 		resourceLoaders.add(new StringLoader());
+	}
+
+	public Lifecycle getCurrentLifecycle() {
+		return currentLifecycle;
+	}
+
+	public void setCurrentLifecycle(Lifecycle currentLifecycle) {
+		this.currentLifecycle = currentLifecycle;
 	}
 }

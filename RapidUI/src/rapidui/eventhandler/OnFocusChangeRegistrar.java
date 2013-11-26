@@ -15,12 +15,12 @@ public class OnFocusChangeRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
 		
 		final Method method = methods.get(OnFocusChange.class);
-
-		((View) target).setOnFocusChangeListener(new View.OnFocusChangeListener() {
+		
+		return new View.OnFocusChangeListener() {
 			@Override
 			public void onFocusChange(View v, boolean hasFocus) {
 				try {
@@ -34,6 +34,11 @@ public class OnFocusChangeRegistrar extends EventHandlerRegistrar {
 					e.printStackTrace();
 				}
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnFocusChangeListener((View.OnFocusChangeListener) dispatcher);
 	}
 }

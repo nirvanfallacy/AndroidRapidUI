@@ -15,12 +15,12 @@ public class OnClickRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
 		
 		final Method onClickMethod = methods.get(OnClick.class);
 		
-		((View) target).setOnClickListener(new View.OnClickListener() {
+		return new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				try {
@@ -34,6 +34,11 @@ public class OnClickRegistrar extends EventHandlerRegistrar {
 					e.printStackTrace();
 				}
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnClickListener((View.OnClickListener) dispatcher);
 	}
 }

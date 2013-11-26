@@ -17,12 +17,11 @@ public class OnCreateContextMenuRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
-		
+
 		final Method method = methods.get(OnCreateContextMenu.class);
-		
-		((View) target).setOnCreateContextMenuListener(new View.OnCreateContextMenuListener() {
+		return new View.OnCreateContextMenuListener() {
 			@Override
 			public void onCreateContextMenu(ContextMenu menu, View v,
 					ContextMenuInfo menuInfo) {
@@ -38,6 +37,11 @@ public class OnCreateContextMenuRegistrar extends EventHandlerRegistrar {
 					e.printStackTrace();
 				}
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnCreateContextMenuListener((View.OnCreateContextMenuListener) dispatcher);
 	}
 }

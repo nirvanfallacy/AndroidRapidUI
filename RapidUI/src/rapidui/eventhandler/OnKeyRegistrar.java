@@ -16,12 +16,11 @@ public class OnKeyRegistrar extends EventHandlerRegistrar {
 	}
 
 	@Override
-	public void registerEventListener(Object target, final Object instance,
+	public Object createEventDispatcher(final Object instance,
 			HashMap<Class<?>, Method> methods) {
-		
+
 		final Method method = methods.get(OnKey.class);
-		
-		((View) target).setOnKeyListener(new View.OnKeyListener() {
+		return new View.OnKeyListener() {
 			@Override
 			public boolean onKey(View v, int keyCode, KeyEvent event) {
 				try {
@@ -37,6 +36,11 @@ public class OnKeyRegistrar extends EventHandlerRegistrar {
 				
 				return false;
 			}
-		});
+		};
+	}
+
+	@Override
+	public void registerEventListener(Object target, Object dispatcher) {
+		((View) target).setOnKeyListener((View.OnKeyListener) dispatcher);
 	}
 }
