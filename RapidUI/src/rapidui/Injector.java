@@ -360,9 +360,7 @@ public abstract class Injector {
 	}
 	
 	public void injectViews() {
-		final Resources res = activity.getResources();
 		final SparseArray<View> viewMap = new SparseArray<View>();
-		final String packageName = activity.getPackageName();
 		
 		// [viewId][registrar][annotation][method]
 		HashMap3Int<EventHandlerRegistrar, Class<?>, Method> methodMap = null;
@@ -388,10 +386,7 @@ public abstract class Injector {
 							}
 						}
 
-						id = res.getIdentifier(ResourceUtils.toLowerUnderscored(name), "id", packageName);
-						if (id == 0) {
-							id = res.getIdentifier(name, "id", packageName);
-						}
+						id = ResourceUtils.findResourceId(activity, name, "id");
 					}
 					
 					field.setAccessible(true);

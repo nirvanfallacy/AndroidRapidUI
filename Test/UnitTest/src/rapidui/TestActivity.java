@@ -48,12 +48,10 @@ public class TestActivity extends RapidActivity {
 	@Resource                         int testInteger;
 	@Resource(R.integer.test_integer) int testInteger2;
 	
-	@Resource
-	float testDimen;
-	@Resource(id=R.dimen.test_dimen, type=ResourceType.DIMENSION_OFFSET) 
-	int testDimenOffset;
-	@Resource(R.dimen.test_dimen)
-	int testDimenSize;
+	@Resource                                     float testDimen;
+	@Resource(id=R.dimen.test_dimen,
+			  type=ResourceType.DIMENSION_OFFSET) int testDimenOffset;
+	@Resource(R.dimen.test_dimen)                 int testDimenSize;
 	
 	@Resource
 	String appName;
