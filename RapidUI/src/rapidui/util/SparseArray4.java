@@ -7,7 +7,7 @@ import java.util.Map.Entry;
 
 import android.util.SparseArray;
 
-public class HashMap4Int<TKey2, TKey3, TKey4, TValue> implements Iterable<Entry<Integer, HashMap<TKey2, HashMap<TKey3, HashMap<TKey4, TValue>>>>> {
+public class SparseArray4<TKey2, TKey3, TKey4, TValue> implements Iterable<Entry<Integer, HashMap<TKey2, HashMap<TKey3, HashMap<TKey4, TValue>>>>> {
 	private SparseArray<HashMap<TKey2, HashMap<TKey3, HashMap<TKey4, TValue>>>> map =
 			new SparseArray<HashMap<TKey2, HashMap<TKey3, HashMap<TKey4, TValue>>>>();
 	

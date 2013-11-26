@@ -55,8 +55,8 @@ import rapidui.resource.DrawableLoader;
 import rapidui.resource.IntegerLoader;
 import rapidui.resource.ResourceLoader;
 import rapidui.resource.StringLoader;
-import rapidui.util.HashMap3Int;
-import rapidui.util.HashMap4Int;
+import rapidui.util.SparseArray3;
+import rapidui.util.SparseArray4;
 import rapidui.util.KeyValueEntry;
 import android.accounts.AccountManager;
 import android.app.Activity;
@@ -106,7 +106,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
-import android.view.accessibility.CaptioningManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 
@@ -371,16 +370,16 @@ public abstract class Injector {
 		final SparseArray<View> viewMap = new SparseArray<View>();
 		
 		// [viewId][registrar][annotation][method]
-		HashMap3Int<EventHandlerRegistrar, Class<?>, Method> eventMap =
-				new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
+		SparseArray3<EventHandlerRegistrar, Class<?>, Method> eventMap =
+				new SparseArray3<EventHandlerRegistrar, Class<?>, Method>();
 
 		// [viewId][registrar][lifecycle][annotation][method]
-		HashMap4Int<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap =
-				new HashMap4Int<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method>();
+		SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap =
+				new SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method>();
 		
 		// [viewId][eventCategoryName][eventName][method]
-		HashMap3Int<String, String, Method> customEvents =
-				new HashMap3Int<String, String, Method>();
+		SparseArray3<String, String, Method> customEvents =
+				new SparseArray3<String, String, Method>();
 		
 		if (unregEvents != null) {
 			unregEvents.clear();
@@ -566,6 +565,20 @@ public abstract class Injector {
 			}
 		}
 		
+		// Register custom event handlers
+		
+		for (Entry<Integer, HashMap<String, HashMap<String, Method>>> entry: customEvents) {
+			final int id = entry.getKey();
+			final Object target = findViewById(viewFinder, id, viewMap);
+			
+			for (Entry<String, HashMap<String, Method>> entry2: entry.getValue().entrySet()) {
+				final String category = entry2.getKey();
+				final HashMap<String, Method> methods = entry2.getValue();
+				
+				registerCustomEventHandler(target, memberContainer, category, methods);
+			}
+		}
+
 		// Register unregisterable event handlers
 		
 		if (!unregEventMap.isEmpty() && unregEvents == null) {
@@ -585,102 +598,109 @@ public abstract class Injector {
 					
 					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
 					
-					LinkedList<UnregisterableEventHandler> list = unregEvents.get(lifecycle);
-					if (list == null) {
-						list = new LinkedList<UnregisterableEventHandler>();
-						unregEvents.put(lifecycle, list);
-					}
-					
-					list.add(new UnregisterableEventHandler(registrar, target, dispatcher));
+					addUnregisterableEventHandler(lifecycle, registrar, target, dispatcher);
 				}
-			}
-		}
-		
-		// Register custom event handlers
-		
-		for (Entry<Integer, HashMap<String, HashMap<String, Method>>> entry: customEvents) {
-			final int id = entry.getKey();
-			final Object target = findViewById(viewFinder, id, viewMap);
-			
-			for (Entry<String, HashMap<String, Method>> entry2: entry.getValue().entrySet()) {
-				final String category = entry2.getKey();
-				final HashMap<String, Method> methods = entry2.getValue();
-				
-				registerCustomEventHandler(target, memberContainer, category, methods);
 			}
 		}
 	}
 	
 	private void registerCustomEventHandler(Object target, Object instance, String category, final HashMap<String, Method> delegates) {
-		final String eventRegistrarMethod = "setOn" + category + "Listener";
+		final String handlerSetter = "setOn" + category + "Listener";
+		final String handlerAdder = "addOn" + category + "Listener";
+		final String handlerRemover = "removeOn" + category + "Listener";
+		
+		Method setter = null;
+		Method adder = null;
+		Method remover = null;
 
 		Class<?> targetType = target.getClass();
 		
 		while (targetType != null && !targetType.equals(Object.class)) {
 			for (Method method2: targetType.getDeclaredMethods()) {
+				if (setter != null || (adder != null && remover != null)) break;
+				
 				final String method2Name = method2.getName();
 				final Class<?>[] params = method2.getParameterTypes();
 				
-				if (method2Name.equals(eventRegistrarMethod) && params.length == 1) {
-					final Class<?> listenerType = params[0];
-					
-					final InvocationHandler invocationHandler;
-					
-					if (delegates.size() == 1 && delegates.containsKey("")) {
-						final Method delegate = delegates.get("");
-						invocationHandler = new InvocationHandler() {
-							@Override
-							public Object invoke(Object proxy, Method method, Object[] args)
-									throws Throwable {
-		
-								return delegate.invoke(memberContainer, args);
-							}
-						};
-					} else {
-						invocationHandler = new InvocationHandler() {
-							@Override
-							public Object invoke(Object proxy, Method method, Object[] args)
-									throws Throwable {
-	
-								final String eventName;
-	
-								final String methodName = method.getName();
-								if (methodName.startsWith("on")) {
-									eventName = methodName.substring(2);
-								} else {
-									eventName = methodName;
-								}
-								
-								final Method delegate = delegates.get(eventName);
-								if (delegate != null) {
-									return delegate.invoke(memberContainer, args);
-								} else {
-									return null;
-								}
-							}
-						};
-					}
-					
-					final Object proxy = Proxy.newProxyInstance(
-							listenerType.getClassLoader(),
-							new Class<?>[] { listenerType },
-							invocationHandler);
-					
-					try {
-						method2.invoke(target, proxy);
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
-					break;
+				if (method2Name.equals(handlerSetter) && params.length == 1) {
+					setter = method2;
+				} else if (method2Name.equals(handlerAdder) && params.length == 1) {
+					adder = method2;
+				} else if (method2Name.equals(handlerRemover) && params.length == 1) {
+					remover = method2;
 				}
 			}
 			
 			targetType = targetType.getSuperclass();
 		}
+		
+		if (setter != null) {
+			final Class<?> listenerType = setter.getParameterTypes()[0];
+			
+			final InvocationHandler invocationHandler;
+			
+			if (delegates.size() == 1 && delegates.containsKey("")) {
+				final Method delegate = delegates.get("");
+				invocationHandler = new InvocationHandler() {
+					@Override
+					public Object invoke(Object proxy, Method method, Object[] args)
+							throws Throwable {
+
+						return delegate.invoke(memberContainer, args);
+					}
+				};
+			} else {
+				invocationHandler = new InvocationHandler() {
+					@Override
+					public Object invoke(Object proxy, Method method, Object[] args)
+							throws Throwable {
+
+						final String eventName;
+
+						final String methodName = method.getName();
+						if (methodName.startsWith("on")) {
+							eventName = methodName.substring(2);
+						} else {
+							eventName = methodName;
+						}
+						
+						final Method delegate = delegates.get(eventName);
+						if (delegate != null) {
+							return delegate.invoke(memberContainer, args);
+						} else {
+							return null;
+						}
+					}
+				};
+			}
+			
+			final Object proxy = Proxy.newProxyInstance(
+					listenerType.getClassLoader(),
+					new Class<?>[] { listenerType },
+					invocationHandler);
+			
+			try {
+				setter.invoke(target, proxy);
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+			}
+		} else if (adder != null && remover != null) {
+			// TODO process unregisterable custom handlers
+		}
+	}
+	
+	private void addUnregisterableEventHandler(Lifecycle lifecycle, UnregisterableEventHandlerRegistrar registrar, Object target, Object dispatcher) {
+		LinkedList<UnregisterableEventHandler> list = unregEvents.get(lifecycle);
+		if (list == null) {
+			list = new LinkedList<UnregisterableEventHandler>();
+			unregEvents.put(lifecycle, list);
+		}
+		
+		list.add(new UnregisterableEventHandler(registrar, target, dispatcher));
 	}
 
 	public void registerExternalHandler(int type, int id, Method method) {
@@ -773,7 +793,7 @@ public abstract class Injector {
 		}
 		if (version >= 19) {
 			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
-			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
+//			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
 			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
 			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
 		}
