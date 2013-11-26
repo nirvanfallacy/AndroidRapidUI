@@ -1,5 +1,6 @@
 package rapidui.resource;
 
+import rapidui.ResourceUtils;
 import rapidui.annotation.ResourceType;
 import android.content.Context;
 import android.view.animation.Animation;
@@ -22,7 +23,7 @@ public class AnimationLoader extends ResourceLoader {
 	@Override
 	public Object load(Context context, String fieldName, Class<?> fieldType) {
 		if (fieldType.isAssignableFrom(Animation.class)) {
-			final int id = findResourceId(context, fieldName, RESOURCE_TYPE);
+			final int id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			if (id != 0) {
 				return AnimationUtils.loadAnimation(context, id);
 			}
@@ -36,7 +37,7 @@ public class AnimationLoader extends ResourceLoader {
 		
 		if (resType == ResourceType.ANIMATION) {
 			if (id == 0) {
-				id = findResourceId(context, fieldName, RESOURCE_TYPE);
+				id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			}
 			if (id != 0) {
 				return AnimationUtils.loadAnimation(context, id);

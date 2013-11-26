@@ -1,5 +1,8 @@
 package rapidui;
 
+import android.content.Context;
+import android.content.res.Resources;
+
 public class ResourceUtils {
 	public static String toLowerUnderscored(String s) {
 		final int STATE_NONE = 0;
@@ -70,5 +73,17 @@ public class ResourceUtils {
 		}
 		
 		return sb.toString();
+	}
+
+	public static int findResourceId(Context context, String name, String type) {
+		final Resources res = context.getResources();
+		final String packageName = context.getPackageName();
+		
+		int id = res.getIdentifier(ResourceUtils.toLowerUnderscored(name), type, packageName);
+		if (id == 0) {
+			id = res.getIdentifier(name, type, packageName);
+		}
+		
+		return id;
 	}
 }

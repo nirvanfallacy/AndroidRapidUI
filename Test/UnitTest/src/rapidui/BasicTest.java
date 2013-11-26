@@ -75,6 +75,18 @@ public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
 		activity.checkbox1checked = false;
 		activity.checkbox1.setChecked(true);
 		assertTrue(activity.checkbox1checked);
+		
+		activity.customHandlerInvoked = false;
+		activity.customView.test();
+		assertTrue(activity.customHandlerInvoked);
+		
+		activity.customHandler1Invoked = false;
+		activity.customView.test1();
+		assertTrue(activity.customHandler1Invoked);
+		
+		activity.customHandler2Invoked = false;
+		activity.customView.test2();
+		assertTrue(activity.customHandler2Invoked);
 	}
 	
 	public void testResources() {

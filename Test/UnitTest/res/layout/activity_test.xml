@@ -26,4 +26,8 @@
         android:layout_height="wrap_content"
         android:checked="false" />
     
+    <rapidui.CustomView android:id="@+id/custom_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    
 </RelativeLayout>

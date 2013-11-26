@@ -1,5 +1,6 @@
 package rapidui.resource;
 
+import rapidui.ResourceUtils;
 import rapidui.annotation.ResourceType;
 import android.content.Context;
 
@@ -29,7 +30,7 @@ public class DimensionLoader extends ResourceLoader {
 				fieldType.isAssignableFrom(Integer.class);
 		
 		if (isFloat || isInteger) {
-			final int id = findResourceId(context, fieldName, RESOURCE_TYPE);
+			final int id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			if (id != 0) {
 				if (isFloat) {
 					return context.getResources().getDimension(id);
@@ -52,7 +53,7 @@ public class DimensionLoader extends ResourceLoader {
 
 		if (isDimension || isDimensionOffset || isDimensionSize) {
 			if (id == 0) {
-				id = findResourceId(context, fieldName, RESOURCE_TYPE);
+				id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			}
 			if (id != 0) {
 				if (isDimension) {

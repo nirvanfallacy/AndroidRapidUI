@@ -1,5 +1,6 @@
 package rapidui.resource;
 
+import rapidui.ResourceUtils;
 import rapidui.annotation.ResourceType;
 import android.animation.Animator;
 import android.animation.AnimatorInflater;
@@ -23,7 +24,7 @@ public class AnimatorLoader extends ResourceLoader {
 	@Override
 	public Object load(Context context, String fieldName, Class<?> fieldType) {
 		if (Build.VERSION.SDK_INT >= 11 && fieldType.isAssignableFrom(Animator.class)) {
-			final int id = findResourceId(context, fieldName, RESOURCE_TYPE);
+			final int id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			if (id != 0) {
 				return AnimatorInflater.loadAnimator(context, id);
 			}
@@ -37,7 +38,7 @@ public class AnimatorLoader extends ResourceLoader {
 
 		if (Build.VERSION.SDK_INT >= 11 && resType == ResourceType.ANIMATOR) {
 			if (id == 0) {
-				id = findResourceId(context, fieldName, RESOURCE_TYPE);
+				id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			}
 			if (id != 0) {
 				return AnimatorInflater.loadAnimator(context, id);

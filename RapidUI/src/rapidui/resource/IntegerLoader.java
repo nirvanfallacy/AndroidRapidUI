@@ -1,5 +1,6 @@
 package rapidui.resource;
 
+import rapidui.ResourceUtils;
 import rapidui.annotation.ResourceType;
 import android.content.Context;
 
@@ -22,7 +23,7 @@ public class IntegerLoader extends ResourceLoader {
 		if (fieldType.isAssignableFrom(Integer.TYPE) ||
 				fieldType.isAssignableFrom(Integer.class)) {
 			
-			final int id = findResourceId(context, fieldName, RESOURCE_TYPE);
+			final int id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			if (id != 0) {
 				return context.getResources().getInteger(id);
 			}
@@ -36,7 +37,7 @@ public class IntegerLoader extends ResourceLoader {
 
 		if (resType == ResourceType.INTEGER) {
 			if (id == 0) {
-				id = findResourceId(context, fieldName, RESOURCE_TYPE);
+				id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			}
 			if (id != 0) {
 				return context.getResources().getInteger(id);

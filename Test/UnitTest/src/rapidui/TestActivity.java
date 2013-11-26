@@ -7,6 +7,7 @@ import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
 import rapidui.annotation.SystemService;
+import rapidui.annotation.eventhandler.On;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.test.unittest.R;
 import android.app.AlarmManager;
@@ -27,9 +28,14 @@ public class TestActivity extends RapidActivity {
 	boolean button2Clicked;
 	boolean checkbox1checked;
 	
+	boolean customHandlerInvoked;
+	boolean customHandler1Invoked;
+	boolean customHandler2Invoked;
+	
 	@LayoutElement                        TextView textHelloWorld;
 	@LayoutElement                        TextView mTextHelloWorld;
 	@LayoutElement(R.id.text_hello_world) TextView helloWorld;
+	@LayoutElement                        CustomView customView;
 	
 	@LayoutElement Button button1;
 	@LayoutElement Button button2;
@@ -71,5 +77,20 @@ public class TestActivity extends RapidActivity {
 	@EventHandler
 	void checkbox1_CheckedChange(CompoundButton buttonView, boolean isChecked) {
 		checkbox1checked = isChecked;
+	}
+	
+	@On(id=R.id.custom_view, event="Test")
+	void customView_Test() {
+		customHandlerInvoked = true;
+	}
+	
+	@On(id=R.id.custom_view, event="Test2.Test1")
+	void customView_Test1() {
+		customHandler1Invoked = true;
+	}
+	
+	@EventHandler
+	void customView_Test2_Test2() {
+		customHandler2Invoked = true;
 	}
 }

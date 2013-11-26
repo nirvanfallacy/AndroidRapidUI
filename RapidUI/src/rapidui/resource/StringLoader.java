@@ -1,5 +1,6 @@
 package rapidui.resource;
 
+import rapidui.ResourceUtils;
 import rapidui.annotation.ResourceType;
 import android.content.Context;
 
@@ -20,7 +21,7 @@ public class StringLoader extends ResourceLoader {
 	@Override
 	public Object load(Context context, String fieldName, Class<?> fieldType) {
 		if (fieldType.isAssignableFrom(String.class)) {
-			final int id = findResourceId(context, fieldName, RESOURCE_TYPE);
+			final int id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			if (id != 0) {
 				return context.getResources().getString(id);
 			}
@@ -34,7 +35,7 @@ public class StringLoader extends ResourceLoader {
 
 		if (resType == ResourceType.STRING) {
 			if (id == 0) {
-				id = findResourceId(context, fieldName, RESOURCE_TYPE);
+				id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			}
 			if (id != 0) {
 				return context.getResources().getString(id);

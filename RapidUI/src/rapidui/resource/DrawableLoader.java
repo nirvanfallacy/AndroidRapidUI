@@ -1,5 +1,6 @@
 package rapidui.resource;
 
+import rapidui.ResourceUtils;
 import rapidui.annotation.ResourceType;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
@@ -19,7 +20,7 @@ public class DrawableLoader extends ResourceLoader {
 	@Override
 	public Object load(Context context, String fieldName, Class<?> fieldType) {
 		if (fieldType.isAssignableFrom(Drawable.class)) {
-			final int id = findResourceId(context, fieldName, RESOURCE_TYPE);
+			final int id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			if (id != 0) {
 				return context.getResources().getDrawable(id);
 			}
@@ -33,7 +34,7 @@ public class DrawableLoader extends ResourceLoader {
 
 		if (resType == ResourceType.DRAWABLE) {
 			if (id == 0) {
-				id = findResourceId(context, fieldName, RESOURCE_TYPE);
+				id = ResourceUtils.findResourceId(context, fieldName, RESOURCE_TYPE);
 			}
 			if (id != 0) {
 				return context.getResources().getDrawable(id);

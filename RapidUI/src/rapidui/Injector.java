@@ -3,8 +3,10 @@ package rapidui;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -19,6 +21,7 @@ import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
 import rapidui.annotation.SystemService;
+import rapidui.annotation.eventhandler.On;
 import rapidui.annotation.eventhandler.OnCheckedChange;
 import rapidui.annotation.eventhandler.OnClick;
 import rapidui.annotation.eventhandler.OnCreateContextMenu;
@@ -362,8 +365,10 @@ public abstract class Injector {
 		final String packageName = activity.getPackageName();
 		
 		// [viewId][registrar][annotation][method]
-		final HashMap3Int<EventHandlerRegistrar, Class<?>, Method> methodMap =
-				new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
+		HashMap3Int<EventHandlerRegistrar, Class<?>, Method> methodMap = null;
+		
+		// [viewId][eventCategoryName][eventName][method]
+		HashMap3Int<String, String, Method> customEvents = null;
 
 		Class<?> cls = memberContainer.getClass();
 		
@@ -411,6 +416,34 @@ public abstract class Injector {
 				for (Annotation annotation: method.getAnnotations()) {
 					final Class<?> annotationType = annotation.annotationType();
 					
+					// @On
+					
+					if (annotationType.equals(On.class)) {
+						if (customEvents == null) {
+							customEvents = new HashMap3Int<String, String, Method>();							
+						}
+						
+						final On on = (On) annotation;
+						
+						final String event = on.event();
+						final String category, name;
+
+						final int dotIndex = event.indexOf('.');
+						if (dotIndex >= 0) {
+							category = event.substring(0, dotIndex);
+							name = event.substring(dotIndex + 1);
+						} else {
+							category = event;
+							name = "";
+						}
+						
+						for (int id: on.id()) {
+							customEvents.put(id, category, name, method);
+						}
+						
+						continue;
+					}
+					
 					// @EventHandler
 					
 					if (annotationType.equals(EventHandler.class)) {
@@ -421,10 +454,7 @@ public abstract class Injector {
 							final String idName = name.substring(0, underscoreIndex);
 							final String annotationName = name.substring(underscoreIndex + 1);
 
-							int id = res.getIdentifier(ResourceUtils.toLowerUnderscored(idName), "id", packageName);
-							if (id == 0) {
-								id = res.getIdentifier(idName, "id", packageName);
-							}
+							final int id = ResourceUtils.findResourceId(activity, idName, "id");
 							
 							if (id != 0 && annotationName.length() > 0) {
 								initAnnotationNameMatchList();
@@ -433,6 +463,9 @@ public abstract class Injector {
 								if (annotationType2 != null) {
 									final EventHandlerRegistrar registrar = registrars.get(annotationType2);
 									if (registrar != null) {
+										if (methodMap == null) {
+											methodMap = new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
+										}
 										methodMap.put(id, registrar, annotationType2, method);
 										continue;
 									}
@@ -440,14 +473,43 @@ public abstract class Injector {
 									final ExternalHandlerInfo info = externalHandlerInfoList.get(annotationType2);
 									if (info != null) {
 										registerExternalHandler(info.getType(), id, method);
+										continue;
 									}
 								}
+								
+								// Custom event
+								
+								final String eventCategory;
+								final String eventName;
+								
+								final int underscoreIndex2 = annotationName.indexOf('_');
+								
+								if (underscoreIndex2 >= 0) {
+									eventCategory = annotationName.substring(0, underscoreIndex2);
+									eventName = annotationName.substring(underscoreIndex2 + 1);
+								} else {
+									eventCategory = annotationName;
+									eventName = "";
+								}
+								
+								if (customEvents == null) {
+									customEvents = new HashMap3Int<String, String, Method>();							
+								}
+								
+								customEvents.put(id, eventCategory, eventName, method);
+								continue;
 							}
 						}
+						
+						continue;
 					}
 					
 					final EventHandlerRegistrar registrar = registrars.get(annotationType);
 					if (registrar != null) {
+						if (methodMap == null) {
+							methodMap = new HashMap3Int<EventHandlerRegistrar, Class<?>, Method>();
+						}
+						
 						for (int id: registrar.getTargetIds(annotation)) {
 							methodMap.put(id, registrar, annotationType, method);
 						}
@@ -470,19 +532,109 @@ public abstract class Injector {
 		
 		// Register event handlers
 		
-		for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: methodMap) {
-			final int id = entry.getKey();
-			
-			for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
-				final EventHandlerRegistrar registrar = entry2.getKey();
-				final HashMap<Class<?>, Method> methods = entry2.getValue();
+		if (methodMap != null) {
+			for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: methodMap) {
+				final int id = entry.getKey();
 				
-				final Object target = findViewById(viewFinder, id, viewMap);
-				registrar.registerEventListener(target, memberContainer, methods);
+				for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
+					final EventHandlerRegistrar registrar = entry2.getKey();
+					final HashMap<Class<?>, Method> methods = entry2.getValue();
+					
+					final Object target = findViewById(viewFinder, id, viewMap);
+					registrar.registerEventListener(target, memberContainer, methods);
+				}
+			}
+		}
+		
+		// Register custom event handlers
+		
+		if (customEvents != null) {
+			for (Entry<Integer, HashMap<String, HashMap<String, Method>>> entry: customEvents) {
+				final int id = entry.getKey();
+				
+				for (Entry<String, HashMap<String, Method>> entry2: entry.getValue().entrySet()) {
+					final String category = entry2.getKey();
+					final HashMap<String, Method> methods = entry2.getValue();
+					
+					final Object target = findViewById(viewFinder, id, viewMap);
+					registerCustomEventHandler(target, memberContainer, category, methods);
+				}
 			}
 		}
 	}
 	
+	private void registerCustomEventHandler(Object target, Object instance, String category, final HashMap<String, Method> delegates) {
+		final String eventRegistrarMethod = "setOn" + category + "Listener";
+
+		Class<?> targetType = target.getClass();
+		
+		while (targetType != null && !targetType.equals(Object.class)) {
+			for (Method method2: targetType.getDeclaredMethods()) {
+				final String method2Name = method2.getName();
+				final Class<?>[] params = method2.getParameterTypes();
+				
+				if (method2Name.equals(eventRegistrarMethod) && params.length == 1) {
+					final Class<?> listenerType = params[0];
+					
+					final InvocationHandler invocationHandler;
+					
+					if (delegates.size() == 1 && delegates.containsKey("")) {
+						final Method delegate = delegates.get("");
+						invocationHandler = new InvocationHandler() {
+							@Override
+							public Object invoke(Object proxy, Method method, Object[] args)
+									throws Throwable {
+		
+								return delegate.invoke(memberContainer, args);
+							}
+						};
+					} else {
+						invocationHandler = new InvocationHandler() {
+							@Override
+							public Object invoke(Object proxy, Method method, Object[] args)
+									throws Throwable {
+	
+								final String eventName;
+	
+								final String methodName = method.getName();
+								if (methodName.startsWith("on")) {
+									eventName = methodName.substring(2);
+								} else {
+									eventName = methodName;
+								}
+								
+								final Method delegate = delegates.get(eventName);
+								if (delegate != null) {
+									return delegate.invoke(memberContainer, args);
+								} else {
+									return null;
+								}
+							}
+						};
+					}
+					
+					final Object proxy = Proxy.newProxyInstance(
+							listenerType.getClassLoader(),
+							new Class<?>[] { listenerType },
+							invocationHandler);
+					
+					try {
+						method2.invoke(target, proxy);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					} catch (InvocationTargetException e) {
+						e.printStackTrace();
+					}
+					break;
+				}
+			}
+			
+			targetType = targetType.getSuperclass();
+		}
+	}
+
 	public void registerExternalHandler(int type, int id, Method method) {
 	}
 
