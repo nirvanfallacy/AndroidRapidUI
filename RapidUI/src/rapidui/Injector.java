@@ -3,10 +3,8 @@ package rapidui;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -34,6 +32,7 @@ import rapidui.annotation.eventhandler.OnLongClick;
 import rapidui.annotation.eventhandler.OnMenuItemClick;
 import rapidui.annotation.eventhandler.OnTextChanged;
 import rapidui.annotation.eventhandler.OnTouch;
+import rapidui.eventhandler.CustomEventHandlerInfo;
 import rapidui.eventhandler.CustomEventRegistrar;
 import rapidui.eventhandler.EventHandlerRegistrar;
 import rapidui.eventhandler.ExternalHandlerInfo;
@@ -47,6 +46,7 @@ import rapidui.eventhandler.OnLongClickRegistrar;
 import rapidui.eventhandler.OnMenuItemClickInfo;
 import rapidui.eventhandler.OnTouchRegistrar;
 import rapidui.eventhandler.TextWatcherRegistrar;
+import rapidui.eventhandler.UnregisterableCustomEventHandlerInfo;
 import rapidui.eventhandler.UnregisterableEventHandlerRegistrar;
 import rapidui.resource.AnimationLoader;
 import rapidui.resource.AnimatorLoader;
@@ -56,9 +56,9 @@ import rapidui.resource.DrawableLoader;
 import rapidui.resource.IntegerLoader;
 import rapidui.resource.ResourceLoader;
 import rapidui.resource.StringLoader;
+import rapidui.util.KeyValueEntry;
 import rapidui.util.SparseArray3;
 import rapidui.util.SparseArray4;
-import rapidui.util.KeyValueEntry;
 import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -379,8 +379,7 @@ public abstract class Injector {
 				new SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method>();
 		
 		// [viewId][eventCategoryName][lifecycle][eventName][method]
-		SparseArray4<String, Lifecycle, String, Method> customEvents =
-				new SparseArray4<String, Lifecycle, String, Method>();
+		SparseArray4<String, Lifecycle, String, Method> customEventMap = null;
 		
 		if (unregEvents != null) {
 			unregEvents.clear();
@@ -448,8 +447,12 @@ public abstract class Injector {
 							name = "";
 						}
 						
+						if (customEventMap == null) {
+							customEventMap = new SparseArray4<String, Lifecycle, String, Method>();
+						}
+						
 						for (int id: on.id()) {
-							customEvents.put(id, category, lifecycle, name, method);
+							customEventMap.put(id, category, lifecycle, name, method);
 						}
 						
 						continue;
@@ -513,8 +516,12 @@ public abstract class Injector {
 									eventName = "";
 								}
 								
+								if (customEventMap == null) {
+									customEventMap = new SparseArray4<String, Lifecycle, String, Method>();
+								}
+								
 								final EventHandler eventHandler = (EventHandler) annotation;
-								customEvents.put(id, eventCategory, eventHandler.lifecycle(), eventName, method);
+								customEventMap.put(id, eventCategory, eventHandler.lifecycle(), eventName, method);
 							}
 						}
 						
@@ -570,18 +577,13 @@ public abstract class Injector {
 		
 		// Register custom event handlers
 		
-		for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEvents) {
-			final int id = entry.getKey();
-			final Object target = findViewById(viewFinder, id, viewMap);
-			
-			for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
-				final String category = entry2.getKey();
+		if (customEventMap != null) {
+			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
+				final int id = entry.getKey();
+				final Object target = findViewById(viewFinder, id, viewMap);
 				
-				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
-					final Lifecycle lifecycle = entry3.getKey();
-					final HashMap<String, Method> methods = entry3.getValue();
-					
-					registerCustomEventHandler(target, memberContainer, category, lifecycle, methods);
+				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
+					processCustomEventHandler(target, entry2);
 				}
 			}
 		}
@@ -611,101 +613,56 @@ public abstract class Injector {
 		}
 	}
 	
-	private void registerCustomEventHandler(Object target, Object instance, String category, Lifecycle lifecycle,
-			final HashMap<String, Method> delegates) {
+	private void processCustomEventHandler(Object target,
+			Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2) {
 		
-		final String handlerSetter = "setOn" + category + "Listener";
-		final String handlerAdder = "addOn" + category + "Listener";
-		final String handlerRemover = "removeOn" + category + "Listener";
+		final String category = entry2.getKey();
+		final CustomEventHandlerInfo info = CustomEventHandlerInfo.create(target, category);
 		
-		Method setter = null;
-		Method adder = null;
-		Method remover = null;
-
-		Class<?> targetType = target.getClass();
+		if (info == null) return;
 		
-		while (targetType != null && !targetType.equals(Object.class)) {
-			for (Method method2: targetType.getDeclaredMethods()) {
-				if (setter != null || (adder != null && remover != null)) break;
-				
-				final String method2Name = method2.getName();
-				final Class<?>[] params = method2.getParameterTypes();
-				
-				if (method2Name.equals(handlerSetter) && params.length == 1) {
-					setter = method2;
-				} else if (method2Name.equals(handlerAdder) && params.length == 1) {
-					adder = method2;
-				} else if (method2Name.equals(handlerRemover) && params.length == 1) {
-					remover = method2;
-				}
-			}
+		if (info instanceof UnregisterableCustomEventHandlerInfo) {
+			final UnregisterableCustomEventHandlerInfo unregInfo =
+					(UnregisterableCustomEventHandlerInfo) info;
+		
+			final Method adder = unregInfo.getAdder();
+			final Method remover = unregInfo.getRemover();
+			final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
 			
-			targetType = targetType.getSuperclass();
-		}
-		
-		final Class<?> listenerType;
-		if (setter != null) {
-			listenerType = setter.getParameterTypes()[0];
-		} else if (adder != null && remover != null) {
-			listenerType = adder.getParameterTypes()[0];
-		} else {
-			return;
-		}
-		
-		final InvocationHandler invocationHandler;
-		
-		if (delegates.size() == 1 && delegates.containsKey("")) {
-			final Method delegate = delegates.get("");
-			invocationHandler = new InvocationHandler() {
-				@Override
-				public Object invoke(Object proxy, Method method, Object[] args)
-						throws Throwable {
-
-					return delegate.invoke(memberContainer, args);
-				}
-			};
-		} else {
-			invocationHandler = new InvocationHandler() {
-				@Override
-				public Object invoke(Object proxy, Method method, Object[] args)
-						throws Throwable {
-
-					final String eventName;
-
-					final String methodName = method.getName();
-					if (methodName.startsWith("on")) {
-						eventName = methodName.substring(2);
-					} else {
-						eventName = methodName;
-					}
-					
-					final Method delegate = delegates.get(eventName);
-					if (delegate != null) {
-						return delegate.invoke(memberContainer, args);
-					} else {
-						return null;
-					}
-				}
-			};
-		}
-		
-		final Object proxy = Proxy.newProxyInstance(
-				listenerType.getClassLoader(),
-				new Class<?>[] { listenerType },
-				invocationHandler);
-		
-		if (setter != null) {
-			try {
-				setter.invoke(target, proxy);
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			} catch (IllegalArgumentException e) {
-				e.printStackTrace();
-			} catch (InvocationTargetException e) {
-				e.printStackTrace();
+			for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
+				final Lifecycle lifecycle = entry3.getKey();
+				final HashMap<String, Method> methods = entry3.getValue();
+				final Object proxy = info.createProxy(memberContainer, methods);
+				
+				if (proxy == null) continue;
+				
+				addUnregisterableEventHandler(lifecycle, registrar, target, proxy);
 			}
-		} else if (adder != null && remover != null) {
-			addUnregisterableEventHandler(lifecycle, new CustomEventRegistrar(adder, remover), target, proxy);
+		} else {
+			HashMap<String, Method> methods = null;
+			for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
+				if (methods == null) {
+					methods = entry3.getValue();
+				} else {
+					methods.putAll(entry3.getValue());
+				}
+			}						
+			
+			if (methods != null) {
+				final Object proxy = info.createProxy(memberContainer, methods);
+				if (proxy != null) {
+					final Method setter = info.getAdder();
+					try {
+						setter.invoke(target, proxy);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					} catch (InvocationTargetException e) {
+						e.printStackTrace();
+					}
+				}
+			}
 		}
 	}
 	
