@@ -666,7 +666,13 @@ public abstract class Injector {
 		}
 	}
 	
-	private void addUnregisterableEventHandler(Lifecycle lifecycle, UnregisterableEventHandlerRegistrar registrar, Object target, Object dispatcher) {
+	private void addUnregisterableEventHandler(Lifecycle lifecycle, UnregisterableEventHandlerRegistrar registrar, Object target,
+			Object dispatcher) {
+
+		if (unregEvents == null) {
+			unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
+		}
+		
 		LinkedList<UnregisterableEventHandler> list = unregEvents.get(lifecycle);
 		if (list == null) {
 			list = new LinkedList<UnregisterableEventHandler>();
@@ -962,7 +968,7 @@ public abstract class Injector {
 		
 		final LinkedList<UnregisterableEventHandler> handlers = unregEvents.get(lifecycle);
 		if (handlers == null) return;
-
+		
 		for (UnregisterableEventHandler handler: handlers) {
 			handler.registrar.unregisterEventListener(handler.target, handler.dispatcher);
 		}

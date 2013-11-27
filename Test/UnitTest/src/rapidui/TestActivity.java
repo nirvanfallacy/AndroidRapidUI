@@ -33,6 +33,7 @@ public class TestActivity extends RapidActivity {
 	boolean customHandlerInvoked;
 	boolean customHandler1Invoked;
 	boolean customHandler2Invoked;
+	boolean customHandler3Invoked;
 	
 	String editTextContent;
 	
@@ -100,5 +101,10 @@ public class TestActivity extends RapidActivity {
 	@EventHandler
 	void editText_AfterTextChanged(Editable s) {
 		editTextContent = s.toString();
+	}
+	
+	@EventHandler
+	void customView_Test3() {
+		customHandler3Invoked = true;
 	}
 }

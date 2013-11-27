@@ -1,5 +1,6 @@
 package rapidui;
 
+import rapidui.eventhandler.EventHandlers;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
@@ -16,6 +17,7 @@ public class CustomView extends View {
 	
 	private OnTestListener onTest;
 	private OnTest2Listener onTest2;
+	private EventHandlers<OnTestListener> onTest3 = new EventHandlers<CustomView.OnTestListener>();
 	
 	public CustomView(Context arg0, AttributeSet arg1, int arg2) {
 		super(arg0, arg1, arg2);
@@ -47,11 +49,25 @@ public class CustomView extends View {
 		}
 	}
 	
+	public void test3() {
+		for (OnTestListener l: onTest3) {
+			l.onTest();
+		}
+	}
+	
 	public void setOnTestListener(OnTestListener listener) {
 		this.onTest = listener;
 	}
 	
 	public void setOnTest2Listener(OnTest2Listener listener) {
 		this.onTest2 = listener;
+	}
+	
+	public void addOnTest3Listener(OnTestListener listener) {
+		onTest3.add(listener);
+	}
+	
+	public void removeOnTest3Listener(OnTestListener listener) {
+		onTest3.remove(listener);
 	}
 }
