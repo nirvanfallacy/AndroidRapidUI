@@ -52,9 +52,27 @@ public class CustomEventRegistrar extends UnregisterableEventHandlerRegistrar {
 	
 	private Method adder;
 	private Method remover;
+	private int hashCode;
 	
 	public CustomEventRegistrar(Method adder, Method remover) {
 		this.adder = adder;
 		this.remover = remover;
+	}
+	
+	@Override
+	public int hashCode() {
+		if (hashCode == 0) {
+			hashCode = adder.hashCode() ^ remover.hashCode();
+		}
+		return hashCode;
+	}
+	
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || !(o instanceof CustomEventRegistrar)) return false;
+		
+		final CustomEventRegistrar registrar = (CustomEventRegistrar) o;
+		return adder.equals(registrar.adder) && remover.equals(registrar.remover);
 	}
 }
