@@ -384,14 +384,13 @@ public abstract class Injector {
 	public void injectViews() {
 		final SparseArray<View> viewMap = new SparseArray<View>();
 		
-		// [viewId][registrar][annotation][method]
-		SparseArray3<EventHandlerRegistrar, Class<?>, Method> eventMap = null;
-
-		// [viewId][registrar][lifecycle][annotation][method]
-		SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap = null;
+		final EventInjector eventInjector = new EventInjector();
 		
-		// [viewId][eventCategoryName][lifecycle][eventName][method]
-		SparseArray4<String, Lifecycle, String, Method> customEventMap = null;
+//		// [customEventHandlerInfo][eventName] = method
+//		HashMap2<CustomEventHandlerInfo, String, Method> customEventMap = null;
+//		
+//		// [customEvnetHandlerInfo][lifecycle][eventName] = method
+//		HashMap3<UnregisterableCustomEventHandlerInfo, Lifecycle, String, Method> unregCustomEventMap = null;
 		
 		if (unregEvents != null) {
 			unregEvents.clear();
@@ -420,131 +419,20 @@ public abstract class Injector {
 					
 					if (annotationType.equals(On.class)) {
 						final On on = (On) annotation;
-						
-						final String event = on.event();
-						final Lifecycle lifecycle = on.lifecycle();
-						
-						final String category, name;
-
-						final int dotIndex = event.indexOf('.');
-						if (dotIndex >= 0) {
-							category = event.substring(0, dotIndex);
-							name = event.substring(dotIndex + 1);
-						} else {
-							category = event;
-							name = "";
-						}
-						
-						if (customEventMap == null) {
-							customEventMap = new SparseArray4<String, Lifecycle, String, Method>();
-						}
-						
-						for (int id: on.id()) {
-							customEventMap.put(id, category, lifecycle, name, method);
-						}
-						
+						eventInjector.injectOn(method, on);
 						continue;
 					}
 					
 					// @EventHandler
 					
 					if (annotationType.equals(EventHandler.class)) {
-						final String name = method.getName();
-						final int underscoreIndex = name.indexOf('_');
-						
-						if (underscoreIndex >= 0) {
-							final String idName = name.substring(0, underscoreIndex);
-							final String annotationName = name.substring(underscoreIndex + 1);
-
-							final int id = ResourceUtils.findResourceId(activity, idName, "id");
-							
-							if (id != 0 && annotationName.length() > 0) {
-								initAnnotationNameMatchList();
-								
-								final Class<?> annotationType2 = annotationNameMatch.get(annotationName);
-								if (annotationType2 != null) {
-									// If it is a view event handler
-									
-									final EventHandlerRegistrar registrar = registrars.get(annotationType2);
-									if (registrar != null) {
-										if (registrar instanceof UnregisterableEventHandlerRegistrar) {
-											final UnregisterableEventHandlerRegistrar registrar2 =
-													(UnregisterableEventHandlerRegistrar) registrar;
-											final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
-											
-											if (unregEventMap == null) {
-												unregEventMap = SparseArray4.create();
-											}
-											unregEventMap.put(id, registrar2, lifecycle, annotationType2, method);
-										} else {
-											if (eventMap == null) {
-												eventMap = SparseArray3.create();
-											}
-											eventMap.put(id, registrar, annotationType2, method);
-										}
-										
-										continue;
-									}
-									
-									// If it is an external event handler
-									
-									final ExternalHandlerInfo info = externalHandlerInfoList.get(annotationType2);
-									if (info != null) {
-										registerExternalHandler(info.getType(), id, method);
-										continue;
-									}
-								}
-								
-								// Custom event
-								
-								final String eventCategory;
-								final String eventName;
-								
-								final int underscoreIndex2 = annotationName.indexOf('_');
-								
-								if (underscoreIndex2 >= 0) {
-									eventCategory = annotationName.substring(0, underscoreIndex2);
-									eventName = annotationName.substring(underscoreIndex2 + 1);
-								} else {
-									eventCategory = annotationName;
-									eventName = "";
-								}
-								
-								if (customEventMap == null) {
-									customEventMap = new SparseArray4<String, Lifecycle, String, Method>();
-								}
-								
-								final EventHandler eventHandler = (EventHandler) annotation;
-								customEventMap.put(id, eventCategory, eventHandler.lifecycle(), eventName, method);
-							}
-						}
-						
+						eventInjector.injectEventHandler(method, annotation);
 						continue;
 					}
 					
 					final EventHandlerRegistrar registrar = registrars.get(annotationType);
 					if (registrar != null) {
-						if (registrar instanceof UnregisterableEventHandlerRegistrar) {
-							final UnregisterableEventHandlerRegistrar registrar2 =
-									(UnregisterableEventHandlerRegistrar) registrar;
-							final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
-							
-							if (unregEventMap == null) {
-								unregEventMap = SparseArray4.create();
-							}
-							
-							for (int id: registrar.getTargetIds(annotation)) {
-								unregEventMap.put(id, registrar2, lifecycle, annotationType, method);
-							}
-						} else {
-							if (eventMap == null) {
-								eventMap = SparseArray3.create();
-							}
-							
-							for (int id: registrar.getTargetIds(annotation)) {
-								eventMap.put(id, registrar, annotationType, method);
-							}
-						}
+						eventInjector.injectStandardHandler(registrar, annotation, method);
 						continue;
 					}
 					
@@ -562,66 +450,9 @@ public abstract class Injector {
 			cls = cls.getSuperclass();
 		}
 		
-		// Register event handlers
-		
-		if (eventMap != null) {
-			for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
-				final int id = entry.getKey();
-				final Object target = findViewById(viewFinder, id, viewMap);
-				
-				for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
-					final EventHandlerRegistrar registrar = entry2.getKey();
-					final HashMap<Class<?>, Method> methods = entry2.getValue();
-					
-					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
-					registrar.registerEventListener(target, dispatcher);
-				}
-			}
-		}
-		
-		// Register custom event handlers
-		
-		if (customEventMap != null) {
-			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
-				final int id = entry.getKey();
-				final Object target = findViewById(viewFinder, id, viewMap);
-				
-				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
-					processCustomEventHandler(target, entry2);
-				}
-			}
-		}
-
-		// Register unregisterable event handlers
-		
-		if (unregEventMap != null) {
-			if (unregEvents == null) {
-				unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
-			}
-			
-			for (Entry<Integer,
-					   HashMap<UnregisterableEventHandlerRegistrar,
-					           HashMap<Lifecycle, HashMap<Class<?>, Method>>
-			          >
-			     > entry: unregEventMap) {
-				
-				final int id = entry.getKey();
-				final Object target = findViewById(viewFinder, id, viewMap);
-				
-				for (Entry<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
-					final UnregisterableEventHandlerRegistrar registrar = entry2.getKey();
-					
-					for (Entry<Lifecycle, HashMap<Class<?>, Method>> entry3: entry2.getValue().entrySet()) {
-						final Lifecycle lifecycle = entry3.getKey();
-						final HashMap<Class<?>, Method> methods = entry3.getValue();
-						
-						final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
-						
-						addUnregisterableEventHandler(lifecycle, registrar, target, dispatcher);
-					}
-				}
-			}
-		}
+		eventInjector.registerSimpleEventHandlers(viewMap);
+		eventInjector.registerCustomEventHandlers(viewMap);
+		eventInjector.registerUnregisterableEventHandlers(viewMap);
 	}
 	
 	private void injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
@@ -1048,5 +879,203 @@ public abstract class Injector {
 
 	public void setCurrentLifecycle(Lifecycle currentLifecycle) {
 		this.currentLifecycle = currentLifecycle;
+	}
+	
+	private class EventInjector {
+		// [viewId][registrar][annotation] = method
+		private SparseArray3<EventHandlerRegistrar, Class<?>, Method> eventMap;
+
+		// [viewId][registrar][lifecycle][annotation] = method
+		private SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap;
+		
+		// [viewId][eventCategoryName][lifecycle][eventName] = method
+		private SparseArray4<String, Lifecycle, String, Method> customEventMap;
+
+		public void injectOn(Method method, On on) {
+			final String event = on.event();
+			final Lifecycle lifecycle = on.lifecycle();
+			
+			final String category, name;
+
+			final int dotIndex = event.indexOf('.');
+			if (dotIndex >= 0) {
+				category = event.substring(0, dotIndex);
+				name = event.substring(dotIndex + 1);
+			} else {
+				category = event;
+				name = "";
+			}
+			
+			for (int id: on.id()) {
+				addCustomEvent(id, category, lifecycle, name, method);
+			}
+		}
+
+		public void registerUnregisterableEventHandlers(
+				SparseArray<View> viewMap) {
+			
+			if (unregEventMap == null) return;
+				
+			if (unregEvents == null) {
+				unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
+			}
+			
+			for (Entry<Integer,
+					   HashMap<UnregisterableEventHandlerRegistrar,
+					           HashMap<Lifecycle, HashMap<Class<?>, Method>>
+			          >
+			     > entry: unregEventMap) {
+				
+				final int id = entry.getKey();
+				final Object target = findViewById(viewFinder, id, viewMap);
+				
+				for (Entry<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
+					final UnregisterableEventHandlerRegistrar registrar = entry2.getKey();
+					
+					for (Entry<Lifecycle, HashMap<Class<?>, Method>> entry3: entry2.getValue().entrySet()) {
+						final Lifecycle lifecycle = entry3.getKey();
+						final HashMap<Class<?>, Method> methods = entry3.getValue();
+						
+						final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
+						
+						addUnregisterableEventHandler(lifecycle, registrar, target, dispatcher);
+					}
+				}
+			}
+		}
+
+		public void registerCustomEventHandlers(SparseArray<View> viewMap) {
+			if (customEventMap == null) return;
+			
+			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
+				final int id = entry.getKey();
+				final Object target = findViewById(viewFinder, id, viewMap);
+				
+				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
+					processCustomEventHandler(target, entry2);
+				}
+			}
+		}
+
+		public void injectStandardHandler(EventHandlerRegistrar registrar, Annotation annotation, Method method) {
+			final Class<?> annotationType = annotation.annotationType();
+			
+			if (registrar instanceof UnregisterableEventHandlerRegistrar) {
+				final UnregisterableEventHandlerRegistrar registrar2 =
+						(UnregisterableEventHandlerRegistrar) registrar;
+				final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
+				
+				for (int id: registrar.getTargetIds(annotation)) {
+					addUnregEvent(id, registrar2, lifecycle, annotationType, method);
+				}
+			} else {
+				for (int id: registrar.getTargetIds(annotation)) {
+					addEvent(id, registrar, annotationType, method);
+				}
+			}
+		}
+
+		public boolean injectEventHandler(Method method, Annotation annotation) {
+			final String name = method.getName();
+			final int underscoreIndex = name.indexOf('_');
+			
+			if (underscoreIndex < 0) return false;
+			
+			final String idName = name.substring(0, underscoreIndex);
+			final String annotationName = name.substring(underscoreIndex + 1);
+
+			final int id = ResourceUtils.findResourceId(activity, idName, "id");
+			
+			if (id == 0 || annotationName.length() == 0) return false;
+			
+			initAnnotationNameMatchList();
+			
+			final Class<?> annotationType2 = annotationNameMatch.get(annotationName);
+			if (annotationType2 != null) {
+				// If it is a view event handler
+				
+				final EventHandlerRegistrar registrar = registrars.get(annotationType2);
+				if (registrar != null) {
+					if (registrar instanceof UnregisterableEventHandlerRegistrar) {
+						final UnregisterableEventHandlerRegistrar registrar2 =
+								(UnregisterableEventHandlerRegistrar) registrar;
+						final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
+						
+						addUnregEvent(id, registrar2, lifecycle, annotationType2, method);
+					} else {
+						addEvent(id, registrar, annotationType2, method);
+					}
+					
+					return true;
+				}
+				
+				// If it is an external event handler
+				
+				final ExternalHandlerInfo info = externalHandlerInfoList.get(annotationType2);
+				if (info != null) {
+					registerExternalHandler(info.getType(), id, method);
+					return true;
+				}
+			}
+			
+			// Custom event
+			
+			final String eventCategory;
+			final String eventName;
+			
+			final int underscoreIndex2 = annotationName.indexOf('_');
+			
+			if (underscoreIndex2 >= 0) {
+				eventCategory = annotationName.substring(0, underscoreIndex2);
+				eventName = annotationName.substring(underscoreIndex2 + 1);
+			} else {
+				eventCategory = annotationName;
+				eventName = "";
+			}
+			
+			final EventHandler eventHandler = (EventHandler) annotation;
+			addCustomEvent(id, eventCategory, eventHandler.lifecycle(), eventName, method);
+			
+			return true;
+		}
+		
+		private void addEvent(int id, EventHandlerRegistrar registrar, Class<?> annotationType, Method method) {
+			if (eventMap == null) {
+				eventMap = SparseArray3.create();
+			}
+			eventMap.put(id, registrar, annotationType, method);
+		}
+		
+		private void addUnregEvent(int id, UnregisterableEventHandlerRegistrar registrar, Lifecycle lifecycle, Class<?> annotationType,
+				Method method) {
+			
+			if (unregEventMap == null) {
+				unregEventMap = SparseArray4.create();
+			}
+			unregEventMap.put(id, registrar, lifecycle, annotationType, method);
+		}
+		
+		private void addCustomEvent(int id, String category, Lifecycle lifecycle, String name, Method method) {
+			if (customEventMap == null) {
+				customEventMap = new SparseArray4<String, Lifecycle, String, Method>();
+			}
+			customEventMap.put(id, category, lifecycle, name, method);
+		}
+		
+		public void registerSimpleEventHandlers(SparseArray<View> viewMap) {
+			if (eventMap == null) return;
+			for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
+				final int id = entry.getKey();
+				final Object target = findViewById(viewFinder, id, viewMap);
+				
+				for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
+					final EventHandlerRegistrar registrar = entry2.getKey();
+					final HashMap<Class<?>, Method> methods = entry2.getValue();
+					
+					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
+					registrar.registerEventListener(target, dispatcher);
+				}
+			}
+		}
 	}
 }
