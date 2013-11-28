@@ -7,9 +7,10 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Service {
+public @interface BindService {
 	public String action() default "";
-	public String packageName() default "";
+	public boolean autoCreate() default true;
 	public String className() default "";
 	public Class<?> classType() default Object.class;
+	public String packageName() default "";
 }

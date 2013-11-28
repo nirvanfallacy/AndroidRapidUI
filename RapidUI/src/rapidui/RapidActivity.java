@@ -2,105 +2,115 @@ package rapidui;
 
 import rapidui.annotation.Lifecycle;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 
-public class RapidActivity extends android.app.Activity {
-	private ActivityInjector injector = new ActivityInjector(this);
+public class RapidActivity extends android.app.Activity implements ServiceConnectionListener {
+	private ActivityExtension ext = new ActivityExtension(this, this);
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		injector.setCurrentLifecycle(Lifecycle.CREATE);
-		injector.injectCommonThings();
-		injector.injectActivity();
+		ext.setCurrentLifecycle(Lifecycle.CREATE);
+		ext.injectCommonThings();
+		ext.injectActivity();
 		
 		if (savedInstanceState != null) {
-			injector.restoreInstanceStates(savedInstanceState);
+			ext.restoreInstanceStates(savedInstanceState);
 		}
 		
-		injector.registerReceivers(Lifecycle.CREATE);
+		ext.registerReceivers(Lifecycle.CREATE);
 	}
 	
 	@Override
 	protected void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		injector.saveInstanceStates(outState);
+		ext.saveInstanceStates(outState);
 	}
 	
 	@Override
 	protected void onDestroy() {
-		injector.unregisterListeners(Lifecycle.CREATE);
-		injector.unregisterReceivers(Lifecycle.CREATE);
+		ext.unbindServices();
+		ext.unregisterListeners(Lifecycle.CREATE);
+		ext.unregisterReceivers(Lifecycle.CREATE);
 		super.onDestroy();
 	}
 	
 	@Override
 	protected void onStart() {
 		super.onStart();
-		injector.setCurrentLifecycle(Lifecycle.START);
-		injector.registerListeners(Lifecycle.START);
-		injector.registerReceivers(Lifecycle.START);
+		ext.setCurrentLifecycle(Lifecycle.START);
+		ext.registerListeners(Lifecycle.START);
+		ext.registerReceivers(Lifecycle.START);
 	}
 	
 	@Override
 	protected void onStop() {
 		super.onStop();
-		injector.setCurrentLifecycle(Lifecycle.CREATE);
-		injector.unregisterListeners(Lifecycle.START);
-		injector.unregisterReceivers(Lifecycle.START);
+		ext.setCurrentLifecycle(Lifecycle.CREATE);
+		ext.unregisterListeners(Lifecycle.START);
+		ext.unregisterReceivers(Lifecycle.START);
 	}
 	
 	@Override
 	protected void onResume() {
 		super.onResume();
-		injector.setCurrentLifecycle(Lifecycle.RESUME);
-		injector.registerListeners(Lifecycle.RESUME);
-		injector.registerReceivers(Lifecycle.RESUME);
+		ext.setCurrentLifecycle(Lifecycle.RESUME);
+		ext.registerListeners(Lifecycle.RESUME);
+		ext.registerReceivers(Lifecycle.RESUME);
 	}
 	
 	@Override
 	protected void onPause() {
 		super.onPause();
-		injector.setCurrentLifecycle(Lifecycle.START);
-		injector.unregisterListeners(Lifecycle.RESUME);
-		injector.unregisterReceivers(Lifecycle.RESUME);
+		ext.setCurrentLifecycle(Lifecycle.START);
+		ext.unregisterListeners(Lifecycle.RESUME);
+		ext.unregisterReceivers(Lifecycle.RESUME);
 	}
 	
 	@Override
 	public void setContentView(int layoutResID) {
-		injector.unregisterAllListeners();
+		ext.unregisterAllListeners();
 		super.setContentView(layoutResID);
-		injector.injectViews();
-		injector.registerListenersToCurrentLifecycle();
+		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
 	}
 	
 	@Override
 	public void setContentView(View view) {
-		injector.unregisterAllListeners();
+		ext.unregisterAllListeners();
 		super.setContentView(view);
-		injector.injectViews();
-		injector.registerListenersToCurrentLifecycle();
+		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
 	}
 	
 	@Override
 	public void setContentView(View view, LayoutParams params) {
-		injector.unregisterAllListeners();
+		ext.unregisterAllListeners();
 		super.setContentView(view, params);
-		injector.injectViews();
-		injector.registerListenersToCurrentLifecycle();
+		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
 	}
 	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		injector.injectOptionsMenu(getMenuInflater(), menu);
+		ext.injectOptionsMenu(getMenuInflater(), menu);
 		return super.onCreateOptionsMenu(menu);
 	}
 	
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-		return (injector.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
+		return (ext.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
+	}
+
+	@Override
+	public void onServiceConnect(IBinder binder) {
+	}
+
+	@Override
+	public void onServiceDisconnect(IBinder binder) {
 	}
 }

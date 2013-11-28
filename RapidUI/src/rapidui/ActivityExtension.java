@@ -17,11 +17,11 @@ import android.view.MenuItem;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class ActivityInjector extends Injector {
+public class ActivityExtension extends RapidExtension {
 	private SparseArray<Method> menuItemClickHandlers;
 	
-	public ActivityInjector(Activity activity) {
-		super(activity, activity, new ActivityViewFinder(activity));
+	public ActivityExtension(Activity activity, ServiceConnectionListener serviceConnectionListener) {
+		super(activity, activity, new ActivityViewFinder(activity), serviceConnectionListener);
 	}
 	
 	public void injectActivity() {

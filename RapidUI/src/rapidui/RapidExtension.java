@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
+import rapidui.annotation.BindService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
 import rapidui.annotation.InstanceState;
@@ -75,9 +76,11 @@ import android.app.admin.DevicePolicyManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ClipboardManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.hardware.ConsumerIrManager;
 import android.hardware.SensorManager;
@@ -111,7 +114,7 @@ import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 
-public abstract class Injector {
+public abstract class RapidExtension {
 	private class EventInjector {
 		// [viewId][registrar][annotation]: method
 		private SparseArray3<SimpleEventRegistrar, Class<?>, Method> eventMap;
@@ -523,21 +526,21 @@ public abstract class Injector {
 	}
 	
 	protected Activity activity;
-	
 	protected Object memberContainer;
-	
 	protected ViewFinder viewFinder;
+	protected ServiceConnectionListener serviceConnectionListener;
 	
 	private Lifecycle currentLifecycle;
 
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
-
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
+	private LinkedList<ServiceConnection> serviceConnections;
 
-	public Injector(Activity activity, Object memberContainer, ViewFinder viewFinder) {
+	public RapidExtension(Activity activity, Object memberContainer, ViewFinder viewFinder, ServiceConnectionListener serviceConnectionListener) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
 		this.viewFinder = viewFinder;
+		this.serviceConnectionListener = serviceConnectionListener;
 	}
 
 	private View findViewById(int id, SparseArray<View> viewMap) {
@@ -585,6 +588,12 @@ public abstract class Injector {
 				if (resource != null) {
 					injectResource(field, resource);
 				}
+				
+				// @BindService
+				final BindService bindService = field.getAnnotation(BindService.class);
+				if (bindService != null) {
+					injectBindService(field, bindService);
+				}
 			}
 			
 			// Methods
@@ -604,6 +613,116 @@ public abstract class Injector {
 		}
 	}
 	
+	private void injectBindService(final Field field, BindService bindService) {
+		// Get stub class
+		
+		Class<?> stubClass = null;
+		for (Class<?> cls: field.getType().getDeclaredClasses()) {
+			if (cls.getSimpleName().equals("Stub")) {
+				stubClass = cls;
+				break;
+			}
+		}
+		
+		if (stubClass == null) return;
+		
+		// Find asInterface() method
+		
+		final Method asInterface;
+		try {
+			asInterface = stubClass.getDeclaredMethod("asInterface", IBinder.class);
+		} catch (NoSuchMethodException e1) {
+			e1.printStackTrace();
+			return;
+		}
+		
+		final Intent intent = new Intent();
+		
+		final String action = bindService.action();
+		if (action.length() > 0) {
+			intent.setAction(action);
+		}
+		
+		final String packageName = bindService.packageName();
+		final String className = bindService.className();
+		final Class<?> classType = bindService.classType();
+		
+		if (packageName.length() == 0) {
+			if (className.length() == 0) {
+				if (classType != null) {
+					intent.setClass(activity, classType);
+				}
+			} else {
+				intent.setClassName(activity, className);
+			}
+		} else {
+			if (className.length() != 0) {
+				intent.setClassName(packageName, className);
+			}
+		}
+		
+		int flags = 0;
+		if (bindService.autoCreate()) {
+			flags |= Context.BIND_AUTO_CREATE;
+		}
+		
+		final ServiceConnection conn = new ServiceConnection() {
+			@Override
+			public void onServiceDisconnected(ComponentName name) {
+				try {
+					field.setAccessible(true);
+					
+					final Object oldValue = field.get(memberContainer);
+					if (serviceConnectionListener != null) {
+						serviceConnectionListener.onServiceDisconnect((IBinder) oldValue);
+					}
+					
+					field.set(memberContainer, null);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			@Override
+			public void onServiceConnected(ComponentName name, IBinder service) {
+				Object obj = null;
+				try {
+					obj = asInterface.invoke(null, service);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+				
+				if (obj != null) {
+					try {
+						field.setAccessible(true);
+						field.set(memberContainer, obj);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					}
+
+					if (serviceConnectionListener != null) {
+						serviceConnectionListener.onServiceConnect((IBinder) obj);
+					}
+				}
+			}
+		};
+		
+		if (serviceConnections == null) {
+			serviceConnections = new LinkedList<ServiceConnection>();
+		}
+		serviceConnections.add(conn);
+		
+		activity.bindService(intent, conn, flags);
+	}
+
 	private void injectExtra(Field field, Extra extra, Bundle extras) {
 		String key = extra.value();
 		if (key.length() == 0) {
@@ -1092,5 +1211,14 @@ public abstract class Injector {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	public void unbindServices() {
+		if (serviceConnections == null) return;
+		
+		for (ServiceConnection conn: serviceConnections) {
+			activity.unbindService(conn);
+		}
+		serviceConnections = null;
 	}
 }

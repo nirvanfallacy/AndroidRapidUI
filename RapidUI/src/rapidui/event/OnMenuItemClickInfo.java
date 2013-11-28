@@ -2,7 +2,7 @@ package rapidui.event;
 
 import java.lang.annotation.Annotation;
 
-import rapidui.Injector;
+import rapidui.RapidExtension;
 import rapidui.annotation.event.OnMenuItemClick;
 
 public class OnMenuItemClickInfo extends ExternalEventInfo {
@@ -13,6 +13,6 @@ public class OnMenuItemClickInfo extends ExternalEventInfo {
 
 	@Override
 	public int getType() {
-		return Injector.EXTERNAL_HANDLER_MENU_ITEM_CLICK;
+		return RapidExtension.EXTERNAL_HANDLER_MENU_ITEM_CLICK;
 	}
 }
