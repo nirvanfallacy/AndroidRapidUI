@@ -114,7 +114,7 @@ import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 
-public abstract class RapidExtension {
+public abstract class Extension {
 	private class EventInjector {
 		// [viewId][registrar][annotation]: method
 		private SparseArray3<SimpleEventRegistrar, Class<?>, Method> eventMap;
@@ -536,7 +536,7 @@ public abstract class RapidExtension {
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
 	private LinkedList<ServiceConnection> serviceConnections;
 
-	public RapidExtension(Activity activity, Object memberContainer, ViewFinder viewFinder, ServiceConnectionListener serviceConnectionListener) {
+	public Extension(Activity activity, Object memberContainer, ViewFinder viewFinder, ServiceConnectionListener serviceConnectionListener) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
 		this.viewFinder = viewFinder;

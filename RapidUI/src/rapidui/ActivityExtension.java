@@ -17,7 +17,7 @@ import android.view.MenuItem;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class ActivityExtension extends RapidExtension {
+public class ActivityExtension extends Extension {
 	private SparseArray<Method> menuItemClickHandlers;
 	
 	public ActivityExtension(Activity activity, ServiceConnectionListener serviceConnectionListener) {
