@@ -7,7 +7,7 @@ import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Lifecycle;
 import rapidui.annotation.Receiver;
-import rapidui.annotation.eventhandler.OnClick;
+import rapidui.annotation.event.OnClick;
 import android.content.Intent;
 import android.view.View;
 import android.widget.TextView;

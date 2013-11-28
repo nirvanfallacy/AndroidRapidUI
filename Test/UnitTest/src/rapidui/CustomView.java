@@ -1,6 +1,6 @@
 package rapidui;
 
-import rapidui.eventhandler.EventHandlers;
+import rapidui.event.ListenerList;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
@@ -17,7 +17,7 @@ public class CustomView extends View {
 	
 	private OnTestListener onTest;
 	private OnTest2Listener onTest2;
-	private EventHandlers<OnTestListener> onTest3 = new EventHandlers<CustomView.OnTestListener>();
+	private ListenerList<OnTestListener> onTest3 = new ListenerList<CustomView.OnTestListener>();
 	
 	public CustomView(Context arg0, AttributeSet arg1, int arg2) {
 		super(arg0, arg1, arg2);
