@@ -20,8 +20,8 @@ import android.view.WindowManager;
 public class ActivityExtension extends Extension {
 	private SparseArray<Method> menuItemClickHandlers;
 	
-	public ActivityExtension(Activity activity, ServiceConnectionListener serviceConnectionListener) {
-		super(activity, activity, new ActivityViewFinder(activity), serviceConnectionListener);
+	public ActivityExtension(Activity activity) {
+		super(activity, activity, new ActivityViewFinder(activity));
 	}
 	
 	public void injectActivity() {

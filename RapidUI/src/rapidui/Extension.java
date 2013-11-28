@@ -148,7 +148,7 @@ public abstract class Extension {
 			unregEventMap.put(id, registrar, lifecycle, annotationType, method);
 		}
 
-		public boolean injectAutoEvent(Method method, Annotation annotation) {
+		public boolean categorizeEventAuto(Method method, Annotation annotation) {
 			final String name = method.getName();
 			final int underscoreIndex = name.indexOf('_');
 			
@@ -212,7 +212,7 @@ public abstract class Extension {
 			return true;
 		}
 
-		public void injectCustomEvent(Method method, On on) {
+		public void categorizeCustomEvent(Method method, On on) {
 			final String event = on.event();
 			final Lifecycle lifecycle = on.lifecycle();
 			
@@ -232,7 +232,7 @@ public abstract class Extension {
 			}
 		}
 		
-		public void injectSimpleEvent(SimpleEventRegistrar registrar, Annotation annotation, Method method) {
+		public void categorizeSimpleEvent(SimpleEventRegistrar registrar, Annotation annotation, Method method) {
 			final Class<?> annotationType = annotation.annotationType();
 			
 			if (registrar instanceof UnregisterableEventRegistrar) {
@@ -250,7 +250,7 @@ public abstract class Extension {
 			}
 		}
 		
-		public void registerCustomEvents(SparseArray<View> viewMap) {
+		public void injectCustomEvents(SparseArray<View> viewMap) {
 			if (customEventMap == null) return;
 			
 			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
@@ -258,12 +258,12 @@ public abstract class Extension {
 				final Object target = findViewById(id, viewMap);
 				
 				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
-					processCustomEventHandler(target, entry2);
+					injectCustomEvent(target, entry2);
 				}
 			}
 		}
 		
-		public void registerSimpleEvents(SparseArray<View> viewMap) {
+		public void injectSimpleEvents(SparseArray<View> viewMap) {
 			if (eventMap == null) return;
 			for (Entry<Integer, HashMap<SimpleEventRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
 				final int id = entry.getKey();
@@ -279,7 +279,7 @@ public abstract class Extension {
 			}
 		}
 		
-		public void registerUnregisterableEvents(SparseArray<View> viewMap) {
+		public void injectUnregisterableEvents(SparseArray<View> viewMap) {
 			if (unregEventMap == null) return;
 				
 			if (unregEvents == null) {
@@ -305,6 +305,59 @@ public abstract class Extension {
 						final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
 						
 						registerUnregisterableEvent(lifecycle, registrar, target, dispatcher);
+					}
+				}
+			}
+		}
+		
+		private void injectCustomEvent(Object target,
+				Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2) {
+			
+			final String category = entry2.getKey();
+			final CustomEventInfo info = CustomEventInfo.create(target, category);
+			
+			if (info == null) return;
+			
+			if (info instanceof UnregisterableCustomEventInfo) {
+				final UnregisterableCustomEventInfo unregInfo =
+						(UnregisterableCustomEventInfo) info;
+			
+				final Method adder = unregInfo.getAdder();
+				final Method remover = unregInfo.getRemover();
+				final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
+				
+				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
+					final HashMap<String, Method> methods = entry3.getValue();
+					final Object proxy = info.createProxy(memberContainer, methods);
+					
+					if (proxy == null) continue;
+					
+					final Lifecycle lifecycle = entry3.getKey();
+					registerUnregisterableEvent(lifecycle, registrar, target, proxy);
+				}
+			} else {
+				HashMap<String, Method> methods = null;
+				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
+					if (methods == null) {
+						methods = entry3.getValue();
+					} else {
+						methods.putAll(entry3.getValue());
+					}
+				}						
+				
+				if (methods != null) {
+					final Object proxy = info.createProxy(memberContainer, methods);
+					if (proxy != null) {
+						final Method setter = info.getAdder();
+						try {
+							setter.invoke(target, proxy);
+						} catch (IllegalAccessException e) {
+							e.printStackTrace();
+						} catch (IllegalArgumentException e) {
+							e.printStackTrace();
+						} catch (InvocationTargetException e) {
+							e.printStackTrace();
+						}
 					}
 				}
 			}
@@ -528,19 +581,19 @@ public abstract class Extension {
 	protected Activity activity;
 	protected Object memberContainer;
 	protected ViewFinder viewFinder;
-	protected ServiceConnectionListener serviceConnectionListener;
 	
 	private Lifecycle currentLifecycle;
 
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
+	
 	private LinkedList<ServiceConnection> serviceConnections;
+	private HashMap<String, ServiceCallback> serviceCallbacks;
 
-	public Extension(Activity activity, Object memberContainer, ViewFinder viewFinder, ServiceConnectionListener serviceConnectionListener) {
+	public Extension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
 		this.viewFinder = viewFinder;
-		this.serviceConnectionListener = serviceConnectionListener;
 	}
 
 	private View findViewById(int id, SparseArray<View> viewMap) {
@@ -602,10 +655,26 @@ public abstract class Extension {
 				final int modifier = method.getModifiers();
 				if ((modifier & Modifier.STATIC) != 0) continue;
 
-				final Receiver receiver = (Receiver) method.getAnnotation(Receiver.class);
-				if (receiver != null) {
-					// @Receiver
-					injectReceiver(method, receiver);
+				for (Annotation annotation: method.getAnnotations()) {
+					if (annotation instanceof Receiver) {
+						final Receiver receiver = (Receiver) annotation;
+						if (receiver != null) {
+							// @Receiver
+							injectReceiver(method, receiver);
+						}
+						continue;
+					}
+					
+					final Class<?> annotationType = annotation.getClass();
+
+					final ExternalEventInfo info = externalHandlerInfoList.get(annotationType);
+					if (info != null) {
+						final int type = info.getType();
+						for (int id: info.getTargetIds(annotation)) {
+							registerExternalHandler(type, id, method);
+						}
+						continue;
+					}
 				}
 			}
 			
@@ -642,7 +711,8 @@ public abstract class Extension {
 		if (action.length() > 0) {
 			intent.setAction(action);
 		}
-		
+
+		final String alias = bindService.alias();
 		final String packageName = bindService.packageName();
 		final String className = bindService.className();
 		final Class<?> classType = bindService.classType();
@@ -669,14 +739,27 @@ public abstract class Extension {
 		final ServiceConnection conn = new ServiceConnection() {
 			@Override
 			public void onServiceDisconnected(ComponentName name) {
+				if (serviceConnections != null) {
+					serviceConnections.remove(this);
+				}
+				
+				if (serviceCallbacks != null) {
+					final ServiceCallback callback = serviceCallbacks.get(alias);
+					if (callback != null && callback.onDisconnect != null) {
+						try {
+							callback.onDisconnect.invoke(memberContainer, alias);
+						} catch (IllegalAccessException e1) {
+							e1.printStackTrace();
+						} catch (IllegalArgumentException e1) {
+							e1.printStackTrace();
+						} catch (InvocationTargetException e1) {
+							e1.printStackTrace();
+						}
+					}
+				}
+
 				try {
 					field.setAccessible(true);
-					
-					final Object oldValue = field.get(memberContainer);
-					if (serviceConnectionListener != null) {
-						serviceConnectionListener.onServiceDisconnect((IBinder) oldValue);
-					}
-					
 					field.set(memberContainer, null);
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
@@ -708,8 +791,19 @@ public abstract class Extension {
 						e.printStackTrace();
 					}
 
-					if (serviceConnectionListener != null) {
-						serviceConnectionListener.onServiceConnect((IBinder) obj);
+					if (serviceCallbacks != null) {
+						final ServiceCallback callback = serviceCallbacks.get(alias);
+						if (callback != null && callback.onConnect != null) {
+							try {
+								callback.onConnect.invoke(memberContainer, alias);
+							} catch (InvocationTargetException e) {
+								e.printStackTrace();
+							} catch (IllegalAccessException e) {
+								e.printStackTrace();
+							} catch (IllegalArgumentException e) {
+								e.printStackTrace();
+							}
+						}
 					}
 				}
 			}
@@ -976,29 +1070,20 @@ public abstract class Extension {
 					
 					if (annotationType.equals(On.class)) {
 						final On on = (On) annotation;
-						eventInjector.injectCustomEvent(method, on);
+						eventInjector.categorizeCustomEvent(method, on);
 						continue;
 					}
 					
 					// @EventHandler
 					
 					if (annotationType.equals(EventHandler.class)) {
-						eventInjector.injectAutoEvent(method, annotation);
+						eventInjector.categorizeEventAuto(method, annotation);
 						continue;
 					}
 					
 					final SimpleEventRegistrar registrar = registrars.get(annotationType);
 					if (registrar != null) {
-						eventInjector.injectSimpleEvent(registrar, annotation, method);
-						continue;
-					}
-					
-					final ExternalEventInfo info = externalHandlerInfoList.get(annotationType);
-					if (info != null) {
-						final int type = info.getType();
-						for (int id: info.getTargetIds(annotation)) {
-							registerExternalHandler(type, id, method);
-						}
+						eventInjector.categorizeSimpleEvent(registrar, annotation, method);
 						continue;
 					}
 				}
@@ -1007,62 +1092,9 @@ public abstract class Extension {
 			cls = cls.getSuperclass();
 		}
 		
-		eventInjector.registerSimpleEvents(viewMap);
-		eventInjector.registerCustomEvents(viewMap);
-		eventInjector.registerUnregisterableEvents(viewMap);
-	}
-	
-	private void processCustomEventHandler(Object target,
-			Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2) {
-		
-		final String category = entry2.getKey();
-		final CustomEventInfo info = CustomEventInfo.create(target, category);
-		
-		if (info == null) return;
-		
-		if (info instanceof UnregisterableCustomEventInfo) {
-			final UnregisterableCustomEventInfo unregInfo =
-					(UnregisterableCustomEventInfo) info;
-		
-			final Method adder = unregInfo.getAdder();
-			final Method remover = unregInfo.getRemover();
-			final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
-			
-			for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
-				final HashMap<String, Method> methods = entry3.getValue();
-				final Object proxy = info.createProxy(memberContainer, methods);
-				
-				if (proxy == null) continue;
-				
-				final Lifecycle lifecycle = entry3.getKey();
-				registerUnregisterableEvent(lifecycle, registrar, target, proxy);
-			}
-		} else {
-			HashMap<String, Method> methods = null;
-			for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
-				if (methods == null) {
-					methods = entry3.getValue();
-				} else {
-					methods.putAll(entry3.getValue());
-				}
-			}						
-			
-			if (methods != null) {
-				final Object proxy = info.createProxy(memberContainer, methods);
-				if (proxy != null) {
-					final Method setter = info.getAdder();
-					try {
-						setter.invoke(target, proxy);
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
-				}
-			}
-		}
+		eventInjector.injectSimpleEvents(viewMap);
+		eventInjector.injectCustomEvents(viewMap);
+		eventInjector.injectUnregisterableEvents(viewMap);
 	}
 	
 	public void registerExternalHandler(int type, int id, Method method) {
@@ -1217,8 +1249,21 @@ public abstract class Extension {
 		if (serviceConnections == null) return;
 		
 		for (ServiceConnection conn: serviceConnections) {
-			activity.unbindService(conn);
+			try {
+				activity.unbindService(conn);
+			} catch (IllegalArgumentException e) {
+			}
 		}
 		serviceConnections = null;
+	}
+	
+	private static class ServiceCallback {
+		public Method onConnect;
+		public Method onDisconnect;
+		
+		public ServiceCallback(Method onConnect, Method onDisconnect) {
+			this.onConnect = onConnect;
+			this.onDisconnect = onDisconnect;
+		}
 	}
 }

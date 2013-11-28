@@ -2,14 +2,13 @@ package rapidui;
 
 import rapidui.annotation.Lifecycle;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 
-public class RapidActivity extends android.app.Activity implements ServiceConnectionListener {
-	private ActivityExtension ext = new ActivityExtension(this, this);
+public class RapidActivity extends android.app.Activity {
+	private ActivityExtension ext = new ActivityExtension(this);
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -104,13 +103,5 @@ public class RapidActivity extends android.app.Activity implements ServiceConnec
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		return (ext.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
-	}
-
-	@Override
-	public void onServiceConnect(IBinder binder) {
-	}
-
-	@Override
-	public void onServiceDisconnect(IBinder binder) {
 	}
 }
