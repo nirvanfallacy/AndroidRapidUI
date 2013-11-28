@@ -5,6 +5,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -431,9 +432,11 @@ public abstract class Injector {
 			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
 		}
 	}
-	private static boolean isClassRoot(Class<?> cls) {
+	
+	private static boolean isRapidClass(Class<?> cls) {
 		return cls.equals(RapidActivity.class);
 	}
+	
 	@SuppressWarnings("unchecked")
 	private static void putIntoBundle(Bundle bundle, String key, Object value) {
 		if (value instanceof String) {
@@ -557,10 +560,13 @@ public abstract class Injector {
 		
 		Class<?> cls = memberContainer.getClass();
 		
-		while (cls != null && !isClassRoot(cls)) {
+		while (cls != null && !isRapidClass(cls)) {
 			// Fields
 			
 			for (Field field: cls.getDeclaredFields()) {
+				final int modifier = field.getModifiers();
+				if ((modifier & Modifier.STATIC) != 0) continue;
+				
 				// @SystemService
 				if (field.isAnnotationPresent(SystemService.class)) {
 					injectSystemService(field);
@@ -584,6 +590,9 @@ public abstract class Injector {
 			// Methods
 			
 			for (final Method method: cls.getDeclaredMethods()) {
+				final int modifier = method.getModifiers();
+				if ((modifier & Modifier.STATIC) != 0) continue;
+
 				final Receiver receiver = (Receiver) method.getAnnotation(Receiver.class);
 				if (receiver != null) {
 					// @Receiver
@@ -825,6 +834,9 @@ public abstract class Injector {
 			// Fields
 			
 			for (Field field: cls.getDeclaredFields()) {
+				final int modifier = field.getModifiers();
+				if ((modifier & Modifier.STATIC) != 0) continue;
+				
 				// @LayoutElement
 				final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
 				if (layoutElement != null) {
@@ -835,6 +847,9 @@ public abstract class Injector {
 			// Methods
 			
 			for (final Method method: cls.getDeclaredMethods()) {
+				final int modifier = method.getModifiers();
+				if ((modifier & Modifier.STATIC) != 0) continue;
+				
 				for (Annotation annotation: method.getAnnotations()) {
 					final Class<?> annotationType = annotation.annotationType();
 					
@@ -985,7 +1000,7 @@ public abstract class Injector {
 	
 	public void restoreInstanceStates(Bundle bundle) {
 		Class<?> cls = memberContainer.getClass();
-		while (cls != null && !isClassRoot(cls)) {
+		while (cls != null && !isRapidClass(cls)) {
 			for (Field field: cls.getDeclaredFields()) {
 				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
 				if (instanceState == null) continue;
@@ -1015,7 +1030,7 @@ public abstract class Injector {
 	
 	public void saveInstanceStates(Bundle bundle) {
 		Class<?> cls = memberContainer.getClass();
-		while (cls != null && !isClassRoot(cls)) {
+		while (cls != null && !isRapidClass(cls)) {
 			for (Field field: cls.getDeclaredFields()) {
 				final InstanceState instanceState = field.getAnnotation(InstanceState.class);
 				if (instanceState == null) continue;
