@@ -32,11 +32,12 @@ import rapidui.annotation.event.OnFocusChange;
 import rapidui.annotation.event.OnKey;
 import rapidui.annotation.event.OnLongClick;
 import rapidui.annotation.event.OnMenuItemClick;
+import rapidui.annotation.event.OnServiceConnect;
+import rapidui.annotation.event.OnServiceDisconnect;
 import rapidui.annotation.event.OnTextChanged;
 import rapidui.annotation.event.OnTouch;
 import rapidui.event.CustomEventInfo;
 import rapidui.event.CustomEventRegistrar;
-import rapidui.event.SimpleEventRegistrar;
 import rapidui.event.ExternalEventInfo;
 import rapidui.event.OnCheckedChangeRegistrar;
 import rapidui.event.OnClickRegistrar;
@@ -45,8 +46,11 @@ import rapidui.event.OnDragRegistrar;
 import rapidui.event.OnFocusChangeRegistrar;
 import rapidui.event.OnKeyRegistrar;
 import rapidui.event.OnLongClickRegistrar;
-import rapidui.event.OnMenuItemClickInfo;
+import rapidui.event.OnMenuItemClickExternalEvent;
+import rapidui.event.OnServiceConnectExternalEvent;
+import rapidui.event.OnServiceDisconnectExternalEvent;
 import rapidui.event.OnTouchRegistrar;
+import rapidui.event.SimpleEventRegistrar;
 import rapidui.event.TextWatcherRegistrar;
 import rapidui.event.UnregisterableCustomEventInfo;
 import rapidui.event.UnregisterableEventRegistrar;
@@ -82,7 +86,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
-import android.hardware.ConsumerIrManager;
 import android.hardware.SensorManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
@@ -156,38 +159,45 @@ public abstract class Extension {
 			
 			final String idName = name.substring(0, underscoreIndex);
 			final String annotationName = name.substring(underscoreIndex + 1);
-
-			final int id = ResourceUtils.findResourceId(activity, idName, "id");
 			
-			if (id == 0 || annotationName.length() == 0) return false;
+			if (idName.length() == 0 || annotationName.length() == 0) return false;
 			
 			initAnnotationNameMatchList();
 			
 			final Class<?> annotationType2 = annotationNameMatch.get(annotationName);
 			if (annotationType2 != null) {
-				// If it is a view event handler
-				
-				final SimpleEventRegistrar registrar = registrars.get(annotationType2);
-				if (registrar != null) {
-					if (registrar instanceof UnregisterableEventRegistrar) {
-						final UnregisterableEventRegistrar registrar2 =
-								(UnregisterableEventRegistrar) registrar;
-						final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
-						
-						addUnregEvent(id, registrar2, lifecycle, annotationType2, method);
-					} else {
-						addEvent(id, registrar, annotationType2, method);
-					}
-					
-					return true;
-				}
-				
 				// If it is an external event handler
 				
-				final ExternalEventInfo info = externalHandlerInfoList.get(annotationType2);
+				final ExternalEventInfo info = externalEvents.get(annotationType2);
 				if (info != null) {
-					registerExternalHandler(info.getType(), id, method);
-					return true;
+					final Object id = info.parseId(activity, idName);
+					if (id != null) {
+						registerExternalEvent(info.getType(), id, method);
+						return true;
+					} else {
+						return false;
+					}
+				}
+				
+				// If it is a view event handler
+				
+				final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType2);
+				if (registrar != null) {
+					final int id = ResourceUtils.findResourceId(activity, idName, "id");
+					if (id != 0) {
+						if (registrar instanceof UnregisterableEventRegistrar) {
+							final UnregisterableEventRegistrar registrar2 =
+									(UnregisterableEventRegistrar) registrar;
+							final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
+							
+							addUnregEvent(id, registrar2, lifecycle, annotationType2, method);
+						} else {
+							addEvent(id, registrar, annotationType2, method);
+						}
+						return true;
+					} else {
+						return false;
+					}
 				}
 			}
 			
@@ -206,10 +216,15 @@ public abstract class Extension {
 				eventName = "";
 			}
 			
-			final EventHandler eventHandler = (EventHandler) annotation;
-			addCustomEvent(id, eventCategory, eventHandler.lifecycle(), eventName, method);
-			
-			return true;
+			final int id = ResourceUtils.findResourceId(activity, idName, "id");
+			if (id != 0) {
+				final EventHandler eventHandler = (EventHandler) annotation;
+				addCustomEvent(id, eventCategory, eventHandler.lifecycle(), eventName, method);
+				
+				return true;
+			} else {
+				return false;
+			}
 		}
 
 		public void categorizeCustomEvent(Method method, On on) {
@@ -364,10 +379,13 @@ public abstract class Extension {
 		}
 	}
 	
-	public static final int EXTERNAL_HANDLER_MENU_ITEM_CLICK = 0;
-	private static HashMap<Class<?>, SimpleEventRegistrar> registrars =
+	public static final int EXTERNAL_EVENT_MENU_ITEM_CLICK = 0;
+	public static final int EXTERNAL_EVENT_SERVICE_CONNECT = 1;
+	public static final int EXTERNAL_EVENT_SERVICE_DISCONNECT = 2;
+	
+	private static HashMap<Class<?>, SimpleEventRegistrar> simpleEventRegistrars =
 			new HashMap<Class<?>, SimpleEventRegistrar>();
-	private static HashMap<Class<?>, ExternalEventInfo> externalHandlerInfoList =
+	private static HashMap<Class<?>, ExternalEventInfo> externalEvents =
 			new HashMap<Class<?>, ExternalEventInfo>();
 	private static HashMap<String, Class<?>> annotationNameMatch;
 	private static HashMap<Class<?>, String> systemServices;
@@ -375,21 +393,23 @@ public abstract class Extension {
 	private static LinkedList<ResourceLoader> resourceLoaders;
 	
 	static {
-		registrars.put(OnClick.class, new OnClickRegistrar());
-		registrars.put(OnCreateContextMenu.class, new OnCreateContextMenuRegistrar());
-		registrars.put(OnDrag.class, new OnDragRegistrar());
-		registrars.put(OnFocusChange.class, new OnFocusChangeRegistrar());
-		registrars.put(OnKey.class, new OnKeyRegistrar());
-		registrars.put(OnLongClick.class, new OnLongClickRegistrar());
-		registrars.put(OnTouch.class, new OnTouchRegistrar());
-		registrars.put(OnCheckedChange.class, new OnCheckedChangeRegistrar());
+		simpleEventRegistrars.put(OnClick.class, new OnClickRegistrar());
+		simpleEventRegistrars.put(OnCreateContextMenu.class, new OnCreateContextMenuRegistrar());
+		simpleEventRegistrars.put(OnDrag.class, new OnDragRegistrar());
+		simpleEventRegistrars.put(OnFocusChange.class, new OnFocusChangeRegistrar());
+		simpleEventRegistrars.put(OnKey.class, new OnKeyRegistrar());
+		simpleEventRegistrars.put(OnLongClick.class, new OnLongClickRegistrar());
+		simpleEventRegistrars.put(OnTouch.class, new OnTouchRegistrar());
+		simpleEventRegistrars.put(OnCheckedChange.class, new OnCheckedChangeRegistrar());
 		
 		final TextWatcherRegistrar textWatcherRegistrar = new TextWatcherRegistrar();
-		registrars.put(OnTextChanged.class, textWatcherRegistrar);
-		registrars.put(OnBeforeTextChanged.class, textWatcherRegistrar);
-		registrars.put(OnAfterTextChanged.class, textWatcherRegistrar);
+		simpleEventRegistrars.put(OnTextChanged.class, textWatcherRegistrar);
+		simpleEventRegistrars.put(OnBeforeTextChanged.class, textWatcherRegistrar);
+		simpleEventRegistrars.put(OnAfterTextChanged.class, textWatcherRegistrar);
 		
-		externalHandlerInfoList.put(OnMenuItemClick.class, new OnMenuItemClickInfo());
+		externalEvents.put(OnMenuItemClick.class, new OnMenuItemClickExternalEvent());
+		externalEvents.put(OnServiceConnect.class, new OnServiceConnectExternalEvent());
+		externalEvents.put(OnServiceDisconnect.class, new OnServiceDisconnectExternalEvent());
 	}
 	
 	private static void initAnnotationNameMatchList() {
@@ -397,11 +417,11 @@ public abstract class Extension {
 
 		annotationNameMatch = new HashMap<String, Class<?>>();
 		
-		for (Class<?> cls: registrars.keySet()) {
+		for (Class<?> cls: simpleEventRegistrars.keySet()) {
 			final String name = cls.getSimpleName().substring(2);
 			annotationNameMatch.put(name, cls);
 		}
-		for (Class<?> cls: externalHandlerInfoList.keySet()) {
+		for (Class<?> cls: externalEvents.keySet()) {
 			final String name = cls.getSimpleName().substring(2);
 			annotationNameMatch.put(name, cls);
 		}
@@ -484,7 +504,7 @@ public abstract class Extension {
 		if (version >= 19) {
 			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
 //			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
-			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
+//			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
 			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
 		}
 	}
@@ -665,13 +685,16 @@ public abstract class Extension {
 						continue;
 					}
 					
-					final Class<?> annotationType = annotation.getClass();
+					final Class<?> annotationType = annotation.annotationType();
 
-					final ExternalEventInfo info = externalHandlerInfoList.get(annotationType);
+					final ExternalEventInfo info = externalEvents.get(annotationType);
 					if (info != null) {
-						final int type = info.getType();
-						for (int id: info.getTargetIds(annotation)) {
-							registerExternalHandler(type, id, method);
+						final Iterable<?> ids = info.getTargetIds(annotation);
+						if (ids != null) {
+							final int type = info.getType();
+							for (Object id: ids) {
+								registerExternalEvent(type, id, method);
+							}
 						}
 						continue;
 					}
@@ -747,6 +770,7 @@ public abstract class Extension {
 					final ServiceCallback callback = serviceCallbacks.get(alias);
 					if (callback != null && callback.onDisconnect != null) {
 						try {
+							callback.onDisconnect.setAccessible(true);
 							callback.onDisconnect.invoke(memberContainer, alias);
 						} catch (IllegalAccessException e1) {
 							e1.printStackTrace();
@@ -756,6 +780,8 @@ public abstract class Extension {
 							e1.printStackTrace();
 						}
 					}
+
+					serviceCallbacks.remove(alias);
 				}
 
 				try {
@@ -795,6 +821,7 @@ public abstract class Extension {
 						final ServiceCallback callback = serviceCallbacks.get(alias);
 						if (callback != null && callback.onConnect != null) {
 							try {
+								callback.onConnect.setAccessible(true);
 								callback.onConnect.invoke(memberContainer, alias);
 							} catch (InvocationTargetException e) {
 								e.printStackTrace();
@@ -1081,7 +1108,7 @@ public abstract class Extension {
 						continue;
 					}
 					
-					final SimpleEventRegistrar registrar = registrars.get(annotationType);
+					final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType);
 					if (registrar != null) {
 						eventInjector.categorizeSimpleEvent(registrar, annotation, method);
 						continue;
@@ -1097,7 +1124,30 @@ public abstract class Extension {
 		eventInjector.injectUnregisterableEvents(viewMap);
 	}
 	
-	public void registerExternalHandler(int type, int id, Method method) {
+	public void registerExternalEvent(int type, Object id, Method method) {
+		switch (type) {
+		case EXTERNAL_EVENT_SERVICE_CONNECT:
+		case EXTERNAL_EVENT_SERVICE_DISCONNECT:
+			if (serviceCallbacks == null) {
+				serviceCallbacks = new HashMap<String, ServiceCallback>();
+			}
+			
+			final String alias = (String) id;
+			
+			ServiceCallback callback = serviceCallbacks.get(alias);
+			if (callback == null) {
+				callback = new ServiceCallback();
+				serviceCallbacks.put(alias, callback);
+			}
+			
+			if (type == EXTERNAL_EVENT_SERVICE_CONNECT) {
+				callback.onConnect = method;
+			} else {
+				callback.onDisconnect = method;
+			}
+			
+			break;
+		}
 	}
 	
 	public void registerListeners(Lifecycle lifecycle) {
@@ -1260,10 +1310,5 @@ public abstract class Extension {
 	private static class ServiceCallback {
 		public Method onConnect;
 		public Method onDisconnect;
-		
-		public ServiceCallback(Method onConnect, Method onDisconnect) {
-			this.onConnect = onConnect;
-			this.onDisconnect = onDisconnect;
-		}
 	}
 }

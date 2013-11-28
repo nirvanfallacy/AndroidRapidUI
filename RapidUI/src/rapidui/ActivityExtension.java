@@ -100,20 +100,19 @@ public class ActivityExtension extends Extension {
 	}
 	
 	@Override
-	public void registerExternalHandler(int type, int id, Method method) {
-		final SparseArray<Method> handlerList;
+	public void registerExternalEvent(int type, Object id, Method method) {
 		switch (type) {
-		case EXTERNAL_HANDLER_MENU_ITEM_CLICK:
+		case EXTERNAL_EVENT_MENU_ITEM_CLICK:
 			if (menuItemClickHandlers == null) {
 				menuItemClickHandlers = new SparseArray<Method>();
 			}
-			handlerList = menuItemClickHandlers;
+			menuItemClickHandlers.put((Integer) id, method);
 			break;
 			
-		default: return;
+		default:
+			super.registerExternalEvent(type, id, method);
+			break;
 		}
-
-		handlerList.put(id, method);
 	}
 	
 	private Method getMenuItemClickHandler(int id) {
