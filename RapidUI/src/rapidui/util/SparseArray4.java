@@ -80,4 +80,8 @@ public class SparseArray4<TKey2, TKey3, TKey4, TValue> implements Iterable<Entry
 	public boolean isEmpty() {
 		return map.size() == 0;
 	}
+
+	public static <TKey2, TKey3, TKey4, TValue> SparseArray4<TKey2, TKey3, TKey4, TValue> create() {
+		return new SparseArray4<TKey2, TKey3, TKey4, TValue>();
+	}
 }

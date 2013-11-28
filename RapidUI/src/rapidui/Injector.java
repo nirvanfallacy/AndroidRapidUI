@@ -158,7 +158,6 @@ public abstract class Injector {
 	}
 	
 	public void injectCommonThings() {
-		final Resources res = activity.getResources();
 		final Intent intent = activity.getIntent();
 		final Bundle extras = (intent == null ? null : intent.getExtras());
 		
@@ -169,118 +168,22 @@ public abstract class Injector {
 			
 			for (Field field: cls.getDeclaredFields()) {
 				// @SystemService
-				
 				if (field.isAnnotationPresent(SystemService.class)) {
-					final Class<?> fieldType = field.getType();
-					
-					Object service = null;
-					
-					if (fieldType.equals(BluetoothAdapter.class)) {
-						if (Build.VERSION.SDK_INT >= 18) {
-							service = activity.getSystemService(Context.BLUETOOTH_SERVICE);
-						} else {
-							service = BluetoothAdapter.getDefaultAdapter();
-						}
-//					} else if (fieldClass.equals(DisplayManagerCompat.class)) {
-//						service = DisplayManagerCompat.getInstance(activity);
-					} else {
-						initSystemServiceList();
-						
-						final String serviceName = systemServices.get(fieldType);
-						service = activity.getSystemService(serviceName);
-					}
-
-					if (service != null) {
-						try {
-							field.setAccessible(true);
-							field.set(memberContainer, service);
-						} catch (IllegalAccessException e) {
-							e.printStackTrace();
-						} catch (IllegalArgumentException e) {
-							e.printStackTrace();
-						}
-					}
+					injectSystemService(field);
 				}
 				
 				// @Extra
-				
 				if (extras != null) {
 					final Extra extra = field.getAnnotation(Extra.class);
 					if (extra != null) {
-						String key = extra.value();
-						if (key.length() == 0) {
-							key = field.getName();
-						}
-						
-						final Object value = extras.get(key);
-						if (value != null) {
-							try {
-								field.setAccessible(true);
-								field.set(memberContainer, value);
-							} catch (IllegalAccessException e) {
-								e.printStackTrace();
-							} catch (IllegalArgumentException e) {
-								e.printStackTrace();
-							}
-						}
+						injectExtra(field, extra, extras);
 					}
 				}
 				
 				// @Resource
-				
 				final Resource resource = field.getAnnotation(Resource.class);
 				if (resource != null) {
-					initResourceLoaders();
-					
-					int id = resource.id();
-					if (id == 0) {
-						id = resource.value();
-					}
-					
-					Object value = null;
-					
-					final ResourceType resType = resource.type();
-					if (resType == ResourceType.NONE) {
-						// Infer the resource type from some hints.
-
-						if (id != 0) {
-							final Class<?> fieldType = field.getType();
-							final String typeName = res.getResourceTypeName(id);
-							
-							for (ResourceLoader loader: resourceLoaders) {
-								value = loader.load(activity, typeName, id, fieldType);
-								if (value != null) break;
-							}
-						} else {
-							final String name = field.getName();
-							final Class<?> fieldType = field.getType();
-							
-							for (ResourceLoader loader: resourceLoaders) {
-								value = loader.load(activity, name, fieldType);
-								if (value != null) break;
-							}
-						}
-					} else {
-						// Resource type has been set by user.
-
-						final String fieldName = field.getName();
-						
-						for (ResourceLoader loader: resourceLoaders) {
-							value = loader.load(activity, resType, id, fieldName);
-							if (value != null) break;
-						}
-					}
-					
-					if (value != null) {
-						try {
-							field.setAccessible(true);
-							field.set(memberContainer, value);
-						} catch (IllegalAccessException e) {
-							e.printStackTrace();
-						} catch (IllegalArgumentException e) {
-							e.printStackTrace();
-						}
-					}
+					injectResource(field, resource);
 				}
 			}
 			
@@ -289,77 +192,8 @@ public abstract class Injector {
 			for (final Method method: cls.getDeclaredMethods()) {
 				final Receiver receiver = (Receiver) method.getAnnotation(Receiver.class);
 				if (receiver != null) {
-					if (receivers == null) {
-						receivers = new HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>>();
-					}
-					
-					final IntentFilter filter = new IntentFilter();
-					for (String action: receiver.value()) {
-						filter.addAction(action);
-					}
-					for (String action: receiver.action()) {
-						filter.addAction(action);
-					}
-					for (String category: receiver.category()) {
-						filter.addCategory(category);
-					}
-					
-					final String[] extraKeys = receiver.extra();
-					final BroadcastReceiver broadcastReceiver;
-					
-					if (extraKeys.length == 0) {
-						broadcastReceiver = new BroadcastReceiver() {
-							@Override
-							public void onReceive(Context context, Intent intent) {
-								try {
-									method.setAccessible(true);
-									method.invoke(memberContainer, intent);
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (IllegalArgumentException e) {
-									e.printStackTrace();
-								} catch (InvocationTargetException e) {
-									e.printStackTrace();
-								}
-							}
-						};
-					} else {
-						broadcastReceiver = new BroadcastReceiver() {
-							@Override
-							public void onReceive(Context context, Intent intent) {
-								final Bundle extras = (intent == null ? null : intent.getExtras());
-								
-								final Object[] args = new Object[1 + extraKeys.length];
-								args[0] = intent;
-								
-								for (int i = 0; i < extraKeys.length; ++i) {
-									args[i + 1] = extras.get(extraKeys[i]);
-								}
-								
-								try {
-									method.setAccessible(true);
-									method.invoke(memberContainer, args);
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (IllegalArgumentException e) {
-									e.printStackTrace();
-								} catch (InvocationTargetException e) {
-									e.printStackTrace();
-								}
-							}
-						};
-					}
-					
-					final Lifecycle lifecycle = receiver.lifecycle();
-					
-					LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> list =
-							receivers.get(lifecycle);
-					if (list == null) {
-						list = new LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>();
-						receivers.put(lifecycle, list);
-					}
-					
-					list.add(new KeyValueEntry<IntentFilter, BroadcastReceiver>(filter, broadcastReceiver));
+					// @Receiver
+					injectReceiver(method, receiver);
 				}
 			}
 			
@@ -367,16 +201,194 @@ public abstract class Injector {
 		}
 	}
 	
+	private void injectReceiver(final Method method, Receiver receiver) {
+		if (receivers == null) {
+			receivers = new HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>>();
+		}
+		
+		final IntentFilter filter = new IntentFilter();
+		for (String action: receiver.value()) {
+			filter.addAction(action);
+		}
+		for (String action: receiver.action()) {
+			filter.addAction(action);
+		}
+		for (String category: receiver.category()) {
+			filter.addCategory(category);
+		}
+		
+		final String[] extraKeys = receiver.extra();
+		final BroadcastReceiver broadcastReceiver;
+		
+		if (extraKeys.length == 0) {
+			broadcastReceiver = new BroadcastReceiver() {
+				@Override
+				public void onReceive(Context context, Intent intent) {
+					try {
+						method.setAccessible(true);
+						method.invoke(memberContainer, intent);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					} catch (InvocationTargetException e) {
+						e.printStackTrace();
+					}
+				}
+			};
+		} else {
+			broadcastReceiver = new BroadcastReceiver() {
+				@Override
+				public void onReceive(Context context, Intent intent) {
+					final Bundle extras = (intent == null ? null : intent.getExtras());
+					
+					final Object[] args = new Object[1 + extraKeys.length];
+					args[0] = intent;
+					
+					for (int i = 0; i < extraKeys.length; ++i) {
+						args[i + 1] = extras.get(extraKeys[i]);
+					}
+					
+					try {
+						method.setAccessible(true);
+						method.invoke(memberContainer, args);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					} catch (InvocationTargetException e) {
+						e.printStackTrace();
+					}
+				}
+			};
+		}
+		
+		final Lifecycle lifecycle = receiver.lifecycle();
+		
+		LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>> list =
+				receivers.get(lifecycle);
+		if (list == null) {
+			list = new LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>();
+			receivers.put(lifecycle, list);
+		}
+		
+		list.add(new KeyValueEntry<IntentFilter, BroadcastReceiver>(filter, broadcastReceiver));
+	}
+
+	private void injectExtra(Field field, Extra extra, Bundle extras) {
+		String key = extra.value();
+		if (key.length() == 0) {
+			key = field.getName();
+		}
+		
+		final Object value = extras.get(key);
+		if (value != null) {
+			try {
+				field.setAccessible(true);
+				field.set(memberContainer, value);
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void injectSystemService(Field field) {
+		final Class<?> fieldType = field.getType();
+		
+		Object service = null;
+		
+		if (fieldType.equals(BluetoothAdapter.class)) {
+			if (Build.VERSION.SDK_INT >= 18) {
+				service = activity.getSystemService(Context.BLUETOOTH_SERVICE);
+			} else {
+				service = BluetoothAdapter.getDefaultAdapter();
+			}
+//		} else if (fieldClass.equals(DisplayManagerCompat.class)) {
+//			service = DisplayManagerCompat.getInstance(activity);
+		} else {
+			initSystemServiceList();
+			
+			final String serviceName = systemServices.get(fieldType);
+			service = activity.getSystemService(serviceName);
+		}
+
+		if (service != null) {
+			try {
+				field.setAccessible(true);
+				field.set(memberContainer, service);
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void injectResource(Field field, Resource resource) {
+		final Resources res = activity.getResources();
+		
+		initResourceLoaders();
+		
+		int id = resource.id();
+		if (id == 0) {
+			id = resource.value();
+		}
+		
+		Object value = null;
+		final ResourceType resType = resource.type();
+		if (resType == ResourceType.NONE) {
+			// Infer the resource type from some hints.
+
+			if (id != 0) {
+				final Class<?> fieldType = field.getType();
+				final String typeName = res.getResourceTypeName(id);
+				
+				for (ResourceLoader loader: resourceLoaders) {
+					value = loader.load(activity, typeName, id, fieldType);
+					if (value != null) break;
+				}
+			} else {
+				final String name = field.getName();
+				final Class<?> fieldType = field.getType();
+				
+				for (ResourceLoader loader: resourceLoaders) {
+					value = loader.load(activity, name, fieldType);
+					if (value != null) break;
+				}
+			}
+		} else {
+			// Resource type has been set by user.
+
+			final String fieldName = field.getName();
+			
+			for (ResourceLoader loader: resourceLoaders) {
+				value = loader.load(activity, resType, id, fieldName);
+				if (value != null) break;
+			}
+		}
+		
+		if (value != null) {
+			try {
+				field.setAccessible(true);
+				field.set(memberContainer, value);
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	public void injectViews() {
 		final SparseArray<View> viewMap = new SparseArray<View>();
 		
 		// [viewId][registrar][annotation][method]
-		SparseArray3<EventHandlerRegistrar, Class<?>, Method> eventMap =
-				new SparseArray3<EventHandlerRegistrar, Class<?>, Method>();
+		SparseArray3<EventHandlerRegistrar, Class<?>, Method> eventMap = null;
 
 		// [viewId][registrar][lifecycle][annotation][method]
-		SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap =
-				new SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method>();
+		SparseArray4<UnregisterableEventHandlerRegistrar, Lifecycle, Class<?>, Method> unregEventMap = null;
 		
 		// [viewId][eventCategoryName][lifecycle][eventName][method]
 		SparseArray4<String, Lifecycle, String, Method> customEventMap = null;
@@ -388,37 +400,13 @@ public abstract class Injector {
 		Class<?> cls = memberContainer.getClass();
 		
 		while (cls != null && !cls.equals(RapidActivity.class)) {
+			// Fields
+			
 			for (Field field: cls.getDeclaredFields()) {
 				// @LayoutElement
-				
 				final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
 				if (layoutElement != null) {
-					int id = layoutElement.value();
-					if (id == 0) {
-						String name = field.getName();
-						if (name.length() >= 2 && name.charAt(0) == 'm') {
-							final char c = name.charAt(1);
-							if (Character.isUpperCase(c)) {
-								name = Character.toLowerCase(c) + name.substring(2);
-							}
-						}
-
-						id = ResourceUtils.findResourceId(activity, name, "id");
-					}
-					
-					field.setAccessible(true);
-					try {
-						final View v = viewFinder.findViewById(id);
-						field.set(memberContainer, v);
-						
-						if (v != null) {
-							viewMap.put(id, v);
-						}
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					}
+					injectLayoutElement(field, layoutElement, viewMap);
 				}
 			}
 	
@@ -484,8 +472,14 @@ public abstract class Injector {
 													(UnregisterableEventHandlerRegistrar) registrar;
 											final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
 											
+											if (unregEventMap == null) {
+												unregEventMap = SparseArray4.create();
+											}
 											unregEventMap.put(id, registrar2, lifecycle, annotationType2, method);
 										} else {
+											if (eventMap == null) {
+												eventMap = SparseArray3.create();
+											}
 											eventMap.put(id, registrar, annotationType2, method);
 										}
 										
@@ -535,10 +529,18 @@ public abstract class Injector {
 									(UnregisterableEventHandlerRegistrar) registrar;
 							final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
 							
+							if (unregEventMap == null) {
+								unregEventMap = SparseArray4.create();
+							}
+							
 							for (int id: registrar.getTargetIds(annotation)) {
 								unregEventMap.put(id, registrar2, lifecycle, annotationType, method);
 							}
 						} else {
+							if (eventMap == null) {
+								eventMap = SparseArray3.create();
+							}
+							
 							for (int id: registrar.getTargetIds(annotation)) {
 								eventMap.put(id, registrar, annotationType, method);
 							}
@@ -562,16 +564,18 @@ public abstract class Injector {
 		
 		// Register event handlers
 		
-		for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
-			final int id = entry.getKey();
-			final Object target = findViewById(viewFinder, id, viewMap);
-			
-			for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
-				final EventHandlerRegistrar registrar = entry2.getKey();
-				final HashMap<Class<?>, Method> methods = entry2.getValue();
+		if (eventMap != null) {
+			for (Entry<Integer, HashMap<EventHandlerRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
+				final int id = entry.getKey();
+				final Object target = findViewById(viewFinder, id, viewMap);
 				
-				final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
-				registrar.registerEventListener(target, dispatcher);
+				for (Entry<EventHandlerRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
+					final EventHandlerRegistrar registrar = entry2.getKey();
+					final HashMap<Class<?>, Method> methods = entry2.getValue();
+					
+					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
+					registrar.registerEventListener(target, dispatcher);
+				}
 			}
 		}
 		
@@ -590,29 +594,65 @@ public abstract class Injector {
 
 		// Register unregisterable event handlers
 		
-		if (!unregEventMap.isEmpty() && unregEvents == null) {
-			unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
-		}
-		
-		for (Entry<Integer, HashMap<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>>> entry: unregEventMap) {
-			final int id = entry.getKey();
-			final Object target = findViewById(viewFinder, id, viewMap);
+		if (unregEventMap != null) {
+			if (unregEvents == null) {
+				unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
+			}
 			
-			for (Entry<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
-				final UnregisterableEventHandlerRegistrar registrar = entry2.getKey();
+			for (Entry<Integer,
+					   HashMap<UnregisterableEventHandlerRegistrar,
+					           HashMap<Lifecycle, HashMap<Class<?>, Method>>
+			          >
+			     > entry: unregEventMap) {
 				
-				for (Entry<Lifecycle, HashMap<Class<?>, Method>> entry3: entry2.getValue().entrySet()) {
-					final Lifecycle lifecycle = entry3.getKey();
-					final HashMap<Class<?>, Method> methods = entry3.getValue();
+				final int id = entry.getKey();
+				final Object target = findViewById(viewFinder, id, viewMap);
+				
+				for (Entry<UnregisterableEventHandlerRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
+					final UnregisterableEventHandlerRegistrar registrar = entry2.getKey();
 					
-					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
-					
-					addUnregisterableEventHandler(lifecycle, registrar, target, dispatcher);
+					for (Entry<Lifecycle, HashMap<Class<?>, Method>> entry3: entry2.getValue().entrySet()) {
+						final Lifecycle lifecycle = entry3.getKey();
+						final HashMap<Class<?>, Method> methods = entry3.getValue();
+						
+						final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
+						
+						addUnregisterableEventHandler(lifecycle, registrar, target, dispatcher);
+					}
 				}
 			}
 		}
 	}
 	
+	private void injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
+		int id = layoutElement.value();
+		if (id == 0) {
+			String name = field.getName();
+			if (name.length() >= 2 && name.charAt(0) == 'm') {
+				final char c = name.charAt(1);
+				if (Character.isUpperCase(c)) {
+					name = Character.toLowerCase(c) + name.substring(2);
+				}
+			}
+
+			id = ResourceUtils.findResourceId(activity, name, "id");
+		}
+		
+		field.setAccessible(true);
+		try {
+			final View v = viewFinder.findViewById(id);
+			field.set(memberContainer, v);
+			
+			if (v != null) {
+				viewMap.put(id, v);
+			}
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+		}
+	}
+
 	private void processCustomEventHandler(Object target,
 			Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2) {
 		
@@ -630,12 +670,12 @@ public abstract class Injector {
 			final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
 			
 			for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
-				final Lifecycle lifecycle = entry3.getKey();
 				final HashMap<String, Method> methods = entry3.getValue();
 				final Object proxy = info.createProxy(memberContainer, methods);
 				
 				if (proxy == null) continue;
 				
+				final Lifecycle lifecycle = entry3.getKey();
 				addUnregisterableEventHandler(lifecycle, registrar, target, proxy);
 			}
 		} else {

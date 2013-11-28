@@ -69,4 +69,8 @@ public class SparseArray3<TKey2, TKey3, TValue> implements Iterable<Entry<Intege
 	public boolean isEmpty() {
 		return map.size() == 0;
 	}
+	
+	public static <TKey2, TKey3, TValue> SparseArray3<TKey2, TKey3, TValue> create() {
+		return new SparseArray3<TKey2, TKey3, TValue>();
+	}
 }
