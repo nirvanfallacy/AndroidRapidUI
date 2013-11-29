@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">RapidUI Basic Test</string>
+    <string name="bind_service_test">Bind service test</string>
+    <string name="increase">Increase</string>
+    <string name="decrease">Decrease</string>
+    <string name="instance_state_test">Instance state test</string>
+    <string name="plus">+</string>
+    <string name="minus">-</string>
+    <string name="receiver_test">Receiver test</string>
+    <string name="title_activity_global_layout_test">GlobalLayoutTestActivity</string>
+    <string name="global_layout_test">Global layout test</string>
+    <string name="hello_world">Hello world!</string>
+
+</resources>

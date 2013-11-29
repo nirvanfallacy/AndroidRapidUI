@@ -46,6 +46,7 @@ import rapidui.event.OnClickRegistrar;
 import rapidui.event.OnCreateContextMenuRegistrar;
 import rapidui.event.OnDragRegistrar;
 import rapidui.event.OnFocusChangeRegistrar;
+import rapidui.event.OnGlobalLayoutHostEvent;
 import rapidui.event.OnKeyRegistrar;
 import rapidui.event.OnLongClickRegistrar;
 import rapidui.event.OnMenuItemClickHostEvent;
@@ -109,6 +110,7 @@ import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -416,6 +418,7 @@ public abstract class Extension {
 		hostEvents.put(OnMenuItemClick.class, new OnMenuItemClickHostEvent());
 		hostEvents.put(OnServiceConnect.class, new OnServiceConnectHostEvent());
 		hostEvents.put(OnServiceDisconnect.class, new OnServiceDisconnectHostEvent());
+		hostEvents.put(OnGlobalLayout.class, new OnGlobalLayoutHostEvent());
 	}
 
 	private static void initAnnotationNameMatchList() {
@@ -530,7 +533,7 @@ public abstract class Extension {
 		}
 	}
 	
-	private static boolean isRapidClass(Class<?> cls) {
+	protected static boolean isRapidClass(Class<?> cls) {
 		return cls.equals(RapidActivity.class);
 	}
 	private static boolean parseAutoEventName(Method method, AutoEventName out) {
@@ -886,13 +889,17 @@ public abstract class Extension {
 
 					final HostEventInfo info = hostEvents.get(annotationType);
 					if (info != null) {
+						final int type = info.getType();
+
 						final Iterable<?> ids = info.getTargetIds(annotation);
 						if (ids != null) {
-							final int type = info.getType();
 							for (Object id: ids) {
 								registerHostEvent(annotation, type, id, method);
 							}
+						} else {
+							registerHostEvent(annotation, type, null, method);
 						}
+						
 						continue;
 					}
 				}
@@ -1128,7 +1135,7 @@ public abstract class Extension {
 
 		Class<?> cls = memberContainer.getClass();
 		
-		while (cls != null && !cls.equals(RapidActivity.class)) {
+		while (cls != null && !isRapidClass(cls)) {
 			// Fields
 			
 			for (Field field: cls.getDeclaredFields()) {
@@ -1191,6 +1198,7 @@ public abstract class Extension {
 			}
 			
 			final String alias = (String) id;
+			if (!TextUtils.isEmpty(alias)) break;
 			
 			ServiceCallback callback = serviceCallbacks.get(alias);
 			if (callback == null) {

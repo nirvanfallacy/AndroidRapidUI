@@ -27,51 +27,56 @@ public class ActivityExtension extends Extension {
 	public void injectActivity() {
 		final Resources res = activity.getResources();
 		final Window w = activity.getWindow();
-		final Class<?> activityClass = activity.getClass();
 		
-		// NoTitleBar
+		Class<?> cls = activity.getClass();
 		
-		final TitleBar titleBar = activityClass.getAnnotation(TitleBar.class);
-		if (titleBar != null) {
-			final TitleBarType type = titleBar.value();
-			if (type == TitleBarType.NONE) {
-				activity.requestWindowFeature(Window.FEATURE_NO_TITLE);
-			} else if (type == TitleBarType.CUSTOM) {
-				activity.requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
-			}
-		}
-		
-		// Layout
-		
-		final Layout layout = activityClass.getAnnotation(Layout.class);
-		if (layout != null) {
-			int id = layout.value();
-			if (id == 0) {
-				final String packageName = activity.getPackageName();
-				
-				String name = activityClass.getSimpleName();
-				if (name.length() > 8 && name.endsWith("Activity")) {
-					name = "activity_" + ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - 8));
-				} else {
-					name = ResourceUtils.toLowerUnderscored(name);
+		while (cls != null && !isRapidClass(cls)) {
+			// NoTitleBar
+			
+			final TitleBar titleBar = cls.getAnnotation(TitleBar.class);
+			if (titleBar != null) {
+				final TitleBarType type = titleBar.value();
+				if (type == TitleBarType.NONE) {
+					activity.requestWindowFeature(Window.FEATURE_NO_TITLE);
+				} else if (type == TitleBarType.CUSTOM) {
+					activity.requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
 				}
-
-				id = res.getIdentifier(name, "layout", packageName);
 			}
 			
-			activity.setContentView(id);
-		}
-		
-		// Fullscreen
-		
-		if (activityClass.isAnnotationPresent(FullScreen.class)) {
-			w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-		}
-		
-		// Set layout id when the title bar is set to be customized.
-		
-		if (titleBar != null && titleBar.value() == TitleBarType.CUSTOM) {
-			w.setFeatureInt(Window.FEATURE_CUSTOM_TITLE, titleBar.id());
+			// Layout
+			
+			final Layout layout = cls.getAnnotation(Layout.class);
+			if (layout != null) {
+				int id = layout.value();
+				if (id == 0) {
+					final String packageName = activity.getPackageName();
+					
+					String name = cls.getSimpleName();
+					if (name.length() > 8 && name.endsWith("Activity")) {
+						name = "activity_" + ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - 8));
+					} else {
+						name = ResourceUtils.toLowerUnderscored(name);
+					}
+	
+					id = res.getIdentifier(name, "layout", packageName);
+				}
+				
+				activity.setContentView(id);
+			}
+			
+			// Fullscreen
+			
+			if (cls.isAnnotationPresent(FullScreen.class)) {
+				w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+			}
+			
+			// Set layout id when the title bar is set to be customized.
+			
+			if (titleBar != null && titleBar.value() == TitleBarType.CUSTOM) {
+				w.setFeatureInt(Window.FEATURE_CUSTOM_TITLE, titleBar.id());
+			}
+			
+			cls = cls.getSuperclass();
 		}
 	}
 
@@ -103,10 +108,13 @@ public class ActivityExtension extends Extension {
 	public void registerHostEvent(Object annotation, int type, Object id, Method method) {
 		switch (type) {
 		case HOST_EVENT_MENU_ITEM_CLICK:
+			if (id == null) break;
+
 			if (menuItemClickHandlers == null) {
 				menuItemClickHandlers = new SparseArray<Method>();
 			}
 			menuItemClickHandlers.put((Integer) id, method);
+			
 			break;
 			
 		default:
