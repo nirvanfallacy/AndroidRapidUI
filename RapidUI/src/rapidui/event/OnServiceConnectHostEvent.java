@@ -15,7 +15,7 @@ public class OnServiceConnectHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return Extension.EXTERNAL_EVENT_SERVICE_CONNECT;
+		return Extension.HOST_EVENT_SERVICE_CONNECT;
 	}
 
 	@Override

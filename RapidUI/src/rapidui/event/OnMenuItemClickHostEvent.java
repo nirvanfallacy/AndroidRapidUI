@@ -16,7 +16,7 @@ public class OnMenuItemClickHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return Extension.EXTERNAL_EVENT_MENU_ITEM_CLICK;
+		return Extension.HOST_EVENT_MENU_ITEM_CLICK;
 	}
 
 	@Override

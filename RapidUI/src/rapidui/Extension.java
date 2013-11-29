@@ -30,6 +30,7 @@ import rapidui.annotation.event.OnClick;
 import rapidui.annotation.event.OnCreateContextMenu;
 import rapidui.annotation.event.OnDrag;
 import rapidui.annotation.event.OnFocusChange;
+import rapidui.annotation.event.OnGlobalLayout;
 import rapidui.annotation.event.OnKey;
 import rapidui.annotation.event.OnLongClick;
 import rapidui.annotation.event.OnMenuItemClick;
@@ -111,6 +112,7 @@ import android.telephony.TelephonyManager;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.InputMethodManager;
@@ -271,10 +273,13 @@ public abstract class Extension {
 			
 				final Method adder = unregInfo.getAdder();
 				final Method remover = unregInfo.getRemover();
+				final Class<?> listenerType = unregInfo.getListenerType();
 				final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
 				
 				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
 					final HashMap<String, Method> methods = entry3.getValue();
+					validateCustomMethodMap(methods, listenerType);
+					
 					final Object proxy = info.createProxy(memberContainer, methods);
 					
 					if (proxy == null) continue;
@@ -293,6 +298,8 @@ public abstract class Extension {
 				}						
 				
 				if (methods != null) {
+					validateCustomMethodMap(methods, info.getListenerType());
+					
 					final Object proxy = info.createProxy(memberContainer, methods);
 					if (proxy != null) {
 						final Method setter = info.getAdder();
@@ -374,10 +381,12 @@ public abstract class Extension {
 		public Method onConnect;
 		public Method onDisconnect;
 	}
-	public static final int EXTERNAL_EVENT_MENU_ITEM_CLICK = 0;
 	
-	public static final int EXTERNAL_EVENT_SERVICE_CONNECT = 1;
-	public static final int EXTERNAL_EVENT_SERVICE_DISCONNECT = 2;
+	public static final int HOST_EVENT_MENU_ITEM_CLICK = 0;
+	public static final int HOST_EVENT_SERVICE_CONNECT = 1;
+	public static final int HOST_EVENT_SERVICE_DISCONNECT = 2;
+	public static final int HOST_EVENT_GLOBAL_LAYOUT = 3;
+	
 	private static HashMap<Class<?>, SimpleEventRegistrar> simpleEventRegistrars =
 			new HashMap<Class<?>, SimpleEventRegistrar>();
 	private static HashMap<Class<?>, HostEventInfo> hostEvents =
@@ -424,6 +433,21 @@ public abstract class Extension {
 		}
 	}
 	
+	private static void validateCustomMethodMap(HashMap<String, Method> methods,
+			Class<?> listenerType) {
+		
+		if (methods.size() > 1) return;
+		
+		final Method method = methods.get("");
+		if (method == null) return;
+
+		final String firstEventName = getFirstEventName(listenerType);
+		if (firstEventName == null) return;
+		
+		methods.put(firstEventName, method);
+		methods.remove("");
+	}
+
 	private static void initResourceLoaders() {
 		if (resourceLoaders != null) return;
 		
@@ -620,11 +644,8 @@ public abstract class Extension {
 	
 	private Lifecycle currentLifecycle;
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
-
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
-
 	private HashSet<ServiceConnection> serviceConnections;
-	
 	private HashMap<String, ServiceCallback> serviceCallbacks;
 
 	public Extension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
@@ -855,7 +876,7 @@ public abstract class Extension {
 							if (info != null) {
 								final Object id = info.parseId(activity, autoEventName.target);
 								if (id != null) {
-									registerHostEvent(info.getType(), id, method);
+									registerHostEvent(null, info.getType(), id, method);
 								}
 							}
 						}
@@ -869,7 +890,7 @@ public abstract class Extension {
 						if (ids != null) {
 							final int type = info.getType();
 							for (Object id: ids) {
-								registerHostEvent(type, id, method);
+								registerHostEvent(annotation, type, id, method);
 							}
 						}
 						continue;
@@ -1161,10 +1182,10 @@ public abstract class Extension {
 		eventInjector.injectUnregisterableEvents(viewMap);
 	}
 	
-	public void registerHostEvent(int type, Object id, Method method) {
+	public void registerHostEvent(Object annotation, int type, Object id, final Method method) {
 		switch (type) {
-		case EXTERNAL_EVENT_SERVICE_CONNECT:
-		case EXTERNAL_EVENT_SERVICE_DISCONNECT:
+		case HOST_EVENT_SERVICE_CONNECT:
+		case HOST_EVENT_SERVICE_DISCONNECT:
 			if (serviceCallbacks == null) {
 				serviceCallbacks = new HashMap<String, ServiceCallback>();
 			}
@@ -1177,11 +1198,40 @@ public abstract class Extension {
 				serviceCallbacks.put(alias, callback);
 			}
 			
-			if (type == EXTERNAL_EVENT_SERVICE_CONNECT) {
+			if (type == HOST_EVENT_SERVICE_CONNECT) {
 				callback.onConnect = method;
 			} else {
 				callback.onDisconnect = method;
 			}
+			
+			break;
+			
+		case HOST_EVENT_GLOBAL_LAYOUT:
+			final boolean once = (annotation == null ? true : ((OnGlobalLayout) annotation).once());
+			
+			activity.getWindow().getDecorView().getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+				@Override
+				public void onGlobalLayout() {
+					if (once) {
+						if (Build.VERSION.SDK_INT >= 16) {
+							activity.getWindow().getDecorView().getViewTreeObserver().removeOnGlobalLayoutListener(this);
+						} else {
+							activity.getWindow().getDecorView().getViewTreeObserver().removeGlobalOnLayoutListener(this);
+						}
+					}
+					
+					try {
+						method.setAccessible(true);
+						method.invoke(memberContainer);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					} catch (InvocationTargetException e) {
+						e.printStackTrace();
+					}
+				}
+			});
 			
 			break;
 		}
@@ -1342,5 +1392,19 @@ public abstract class Extension {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	private static String getFirstEventName(Class<?> cls) {
+		String eventName = null;
+		for (Method method: cls.getDeclaredMethods()) {
+			final String methodName = method.getName();
+			if (methodName.startsWith("on")) {
+				return methodName.substring(2);
+			} else {
+				eventName = methodName;
+			}
+		}
+		
+		return eventName;
 	}
 }

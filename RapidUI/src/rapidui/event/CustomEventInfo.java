@@ -23,48 +23,29 @@ public class CustomEventInfo {
 	}
 	
 	public Object createProxy(final Object memberContainer, final HashMap<String, Method> delegates) {
-		final InvocationHandler invocationHandler;
-		
-		if (delegates.size() == 1 && delegates.containsKey("")) {
-			final Method delegate = delegates.get("");
-			if (delegate == null) {
-				return null;
-			} else {
-				invocationHandler = new InvocationHandler() {
-					@Override
-					public Object invoke(Object proxy, Method method, Object[] args)
-							throws Throwable {
-	
-						delegate.setAccessible(true);
-						return delegate.invoke(memberContainer, args);
-					}
-				};
-			}
-		} else {
-			invocationHandler = new InvocationHandler() {
-				@Override
-				public Object invoke(Object proxy, Method method, Object[] args)
-						throws Throwable {
+		final InvocationHandler invocationHandler = new InvocationHandler() {
+			@Override
+			public Object invoke(Object proxy, Method method, Object[] args)
+					throws Throwable {
 
-					final String eventName;
+				final String eventName;
 
-					final String methodName = method.getName();
-					if (methodName.startsWith("on")) {
-						eventName = methodName.substring(2);
-					} else {
-						eventName = methodName;
-					}
-					
-					final Method delegate = delegates.get(eventName);
-					if (delegate != null) {
-						delegate.setAccessible(true);
-						return delegate.invoke(memberContainer, args);
-					} else {
-						return null;
-					}
+				final String methodName = method.getName();
+				if (methodName.startsWith("on")) {
+					eventName = methodName.substring(2);
+				} else {
+					eventName = methodName;
 				}
-			};
-		}
+				
+				final Method delegate = delegates.get(eventName);
+				if (delegate != null) {
+					delegate.setAccessible(true);
+					return delegate.invoke(memberContainer, args);
+				} else {
+					return method.invoke(proxy, args);
+				}
+			}
+		};
 		
 		return Proxy.newProxyInstance(
 				listenerType.getClassLoader(),

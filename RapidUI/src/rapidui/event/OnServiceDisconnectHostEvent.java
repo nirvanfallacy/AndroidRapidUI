@@ -15,7 +15,7 @@ public class OnServiceDisconnectHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return Extension.EXTERNAL_EVENT_SERVICE_DISCONNECT;
+		return Extension.HOST_EVENT_SERVICE_DISCONNECT;
 	}
 
 	@Override

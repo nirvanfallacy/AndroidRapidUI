@@ -100,9 +100,9 @@ public class ActivityExtension extends Extension {
 	}
 	
 	@Override
-	public void registerHostEvent(int type, Object id, Method method) {
+	public void registerHostEvent(Object annotation, int type, Object id, Method method) {
 		switch (type) {
-		case EXTERNAL_EVENT_MENU_ITEM_CLICK:
+		case HOST_EVENT_MENU_ITEM_CLICK:
 			if (menuItemClickHandlers == null) {
 				menuItemClickHandlers = new SparseArray<Method>();
 			}
@@ -110,7 +110,7 @@ public class ActivityExtension extends Extension {
 			break;
 			
 		default:
-			super.registerHostEvent(type, id, method);
+			super.registerHostEvent(annotation, type, id, method);
 			break;
 		}
 	}
