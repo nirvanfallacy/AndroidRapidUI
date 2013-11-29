@@ -100,7 +100,7 @@ public class ActivityExtension extends Extension {
 	}
 	
 	@Override
-	public void registerExternalEvent(int type, Object id, Method method) {
+	public void registerHostEvent(int type, Object id, Method method) {
 		switch (type) {
 		case EXTERNAL_EVENT_MENU_ITEM_CLICK:
 			if (menuItemClickHandlers == null) {
@@ -110,7 +110,7 @@ public class ActivityExtension extends Extension {
 			break;
 			
 		default:
-			super.registerExternalEvent(type, id, method);
+			super.registerHostEvent(type, id, method);
 			break;
 		}
 	}

@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface BindService {
 	public String action() default "";
-	public String alias();
+	public String alias() default "";
 	public boolean autoCreate() default true;
 	public String className() default "";
 	public Class<?> classType() default Object.class;

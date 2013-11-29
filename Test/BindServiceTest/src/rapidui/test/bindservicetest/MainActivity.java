@@ -5,7 +5,6 @@ import rapidui.annotation.BindService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
-import rapidui.annotation.event.OnServiceConnect;
 import android.os.RemoteException;
 import android.widget.TextView;
 
@@ -17,6 +16,7 @@ public class MainActivity extends RapidActivity {
 	@BindService(alias="test", classType=TestService.class)
 	ITestService service;
 	
+//	@OnServiceConnect(alias="test")
 	@EventHandler
 	void test_ServiceConnect(String alias) {
 		try {

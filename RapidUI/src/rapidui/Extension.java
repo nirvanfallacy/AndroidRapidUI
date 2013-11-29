@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
@@ -38,7 +39,7 @@ import rapidui.annotation.event.OnTextChanged;
 import rapidui.annotation.event.OnTouch;
 import rapidui.event.CustomEventInfo;
 import rapidui.event.CustomEventRegistrar;
-import rapidui.event.ExternalEventInfo;
+import rapidui.event.HostEventInfo;
 import rapidui.event.OnCheckedChangeRegistrar;
 import rapidui.event.OnClickRegistrar;
 import rapidui.event.OnCreateContextMenuRegistrar;
@@ -46,9 +47,9 @@ import rapidui.event.OnDragRegistrar;
 import rapidui.event.OnFocusChangeRegistrar;
 import rapidui.event.OnKeyRegistrar;
 import rapidui.event.OnLongClickRegistrar;
-import rapidui.event.OnMenuItemClickExternalEvent;
-import rapidui.event.OnServiceConnectExternalEvent;
-import rapidui.event.OnServiceDisconnectExternalEvent;
+import rapidui.event.OnMenuItemClickHostEvent;
+import rapidui.event.OnServiceConnectHostEvent;
+import rapidui.event.OnServiceDisconnectHostEvent;
 import rapidui.event.OnTouchRegistrar;
 import rapidui.event.SimpleEventRegistrar;
 import rapidui.event.TextWatcherRegistrar;
@@ -69,7 +70,6 @@ import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
-import android.app.AppOpsManager;
 import android.app.DownloadManager;
 import android.app.KeyguardManager;
 import android.app.NotificationManager;
@@ -107,7 +107,6 @@ import android.os.PowerManager;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
-import android.print.PrintManager;
 import android.telephony.TelephonyManager;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
@@ -118,6 +117,12 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 
 public abstract class Extension {
+	private static class AutoEventName {
+		public String target;
+		public String event;
+		public Class<?> annotationType;
+	}
+	
 	private class EventInjector {
 		// [viewId][registrar][annotation]: method
 		private SparseArray3<SimpleEventRegistrar, Class<?>, Method> eventMap;
@@ -127,6 +132,8 @@ public abstract class Extension {
 		
 		// [viewId][eventCategoryName][lifecycle][eventName]: method
 		private SparseArray4<String, Lifecycle, String, Method> customEventMap;
+		
+		private AutoEventName autoEventName;
 
 		private void addCustomEvent(int id, String category, Lifecycle lifecycle, String name, Method method) {
 			if (customEventMap == null) {
@@ -151,37 +158,42 @@ public abstract class Extension {
 			unregEventMap.put(id, registrar, lifecycle, annotationType, method);
 		}
 
+		public void categorizeCustomEvent(Method method, On on) {
+			final String event = on.event();
+			final Lifecycle lifecycle = on.lifecycle();
+			
+			final String category, name;
+
+			final int dotIndex = event.indexOf('.');
+			if (dotIndex >= 0) {
+				category = event.substring(0, dotIndex);
+				name = event.substring(dotIndex + 1);
+			} else {
+				category = event;
+				name = "";
+			}
+			
+			for (int id: on.id()) {
+				addCustomEvent(id, category, lifecycle, name, method);
+			}
+		}
+
 		public boolean categorizeEventAuto(Method method, Annotation annotation) {
-			final String name = method.getName();
-			final int underscoreIndex = name.indexOf('_');
+			if (autoEventName == null) {
+				autoEventName = new AutoEventName();
+			}
 			
-			if (underscoreIndex < 0) return false;
+			if (!parseAutoEventName(method, autoEventName)) return false;
 			
-			final String idName = name.substring(0, underscoreIndex);
-			final String annotationName = name.substring(underscoreIndex + 1);
+			final String annotationName = autoEventName.event;
+			final String idName = autoEventName.target;
+			final Class<?> annotationType = autoEventName.annotationType;
 			
-			if (idName.length() == 0 || annotationName.length() == 0) return false;
-			
-			initAnnotationNameMatchList();
-			
-			final Class<?> annotationType2 = annotationNameMatch.get(annotationName);
-			if (annotationType2 != null) {
-				// If it is an external event handler
+			if (annotationType != null) {
+				final HostEventInfo info = hostEvents.get(annotationType);
+				if (info != null) return false;
 				
-				final ExternalEventInfo info = externalEvents.get(annotationType2);
-				if (info != null) {
-					final Object id = info.parseId(activity, idName);
-					if (id != null) {
-						registerExternalEvent(info.getType(), id, method);
-						return true;
-					} else {
-						return false;
-					}
-				}
-				
-				// If it is a view event handler
-				
-				final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType2);
+				final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType);
 				if (registrar != null) {
 					final int id = ResourceUtils.findResourceId(activity, idName, "id");
 					if (id != 0) {
@@ -190,9 +202,9 @@ public abstract class Extension {
 									(UnregisterableEventRegistrar) registrar;
 							final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
 							
-							addUnregEvent(id, registrar2, lifecycle, annotationType2, method);
+							addUnregEvent(id, registrar2, lifecycle, annotationType, method);
 						} else {
-							addEvent(id, registrar, annotationType2, method);
+							addEvent(id, registrar, annotationType, method);
 						}
 						return true;
 					} else {
@@ -226,26 +238,6 @@ public abstract class Extension {
 				return false;
 			}
 		}
-
-		public void categorizeCustomEvent(Method method, On on) {
-			final String event = on.event();
-			final Lifecycle lifecycle = on.lifecycle();
-			
-			final String category, name;
-
-			final int dotIndex = event.indexOf('.');
-			if (dotIndex >= 0) {
-				category = event.substring(0, dotIndex);
-				name = event.substring(dotIndex + 1);
-			} else {
-				category = event;
-				name = "";
-			}
-			
-			for (int id: on.id()) {
-				addCustomEvent(id, category, lifecycle, name, method);
-			}
-		}
 		
 		public void categorizeSimpleEvent(SimpleEventRegistrar registrar, Annotation annotation, Method method) {
 			final Class<?> annotationType = annotation.annotationType();
@@ -261,6 +253,59 @@ public abstract class Extension {
 			} else {
 				for (int id: registrar.getTargetIds(annotation)) {
 					addEvent(id, registrar, annotationType, method);
+				}
+			}
+		}
+		
+		private void injectCustomEvent(Object target,
+				Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2) {
+			
+			final String category = entry2.getKey();
+			final CustomEventInfo info = CustomEventInfo.create(target, category);
+			
+			if (info == null) return;
+			
+			if (info instanceof UnregisterableCustomEventInfo) {
+				final UnregisterableCustomEventInfo unregInfo =
+						(UnregisterableCustomEventInfo) info;
+			
+				final Method adder = unregInfo.getAdder();
+				final Method remover = unregInfo.getRemover();
+				final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
+				
+				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
+					final HashMap<String, Method> methods = entry3.getValue();
+					final Object proxy = info.createProxy(memberContainer, methods);
+					
+					if (proxy == null) continue;
+					
+					final Lifecycle lifecycle = entry3.getKey();
+					registerUnregisterableEvent(lifecycle, registrar, target, proxy);
+				}
+			} else {
+				HashMap<String, Method> methods = null;
+				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
+					if (methods == null) {
+						methods = entry3.getValue();
+					} else {
+						methods.putAll(entry3.getValue());
+					}
+				}						
+				
+				if (methods != null) {
+					final Object proxy = info.createProxy(memberContainer, methods);
+					if (proxy != null) {
+						final Method setter = info.getAdder();
+						try {
+							setter.invoke(target, proxy);
+						} catch (IllegalAccessException e) {
+							e.printStackTrace();
+						} catch (IllegalArgumentException e) {
+							e.printStackTrace();
+						} catch (InvocationTargetException e) {
+							e.printStackTrace();
+						}
+					}
 				}
 			}
 		}
@@ -324,70 +369,22 @@ public abstract class Extension {
 				}
 			}
 		}
-		
-		private void injectCustomEvent(Object target,
-				Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2) {
-			
-			final String category = entry2.getKey();
-			final CustomEventInfo info = CustomEventInfo.create(target, category);
-			
-			if (info == null) return;
-			
-			if (info instanceof UnregisterableCustomEventInfo) {
-				final UnregisterableCustomEventInfo unregInfo =
-						(UnregisterableCustomEventInfo) info;
-			
-				final Method adder = unregInfo.getAdder();
-				final Method remover = unregInfo.getRemover();
-				final CustomEventRegistrar registrar = new CustomEventRegistrar(adder, remover);
-				
-				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
-					final HashMap<String, Method> methods = entry3.getValue();
-					final Object proxy = info.createProxy(memberContainer, methods);
-					
-					if (proxy == null) continue;
-					
-					final Lifecycle lifecycle = entry3.getKey();
-					registerUnregisterableEvent(lifecycle, registrar, target, proxy);
-				}
-			} else {
-				HashMap<String, Method> methods = null;
-				for (Entry<Lifecycle, HashMap<String, Method>> entry3: entry2.getValue().entrySet()) {
-					if (methods == null) {
-						methods = entry3.getValue();
-					} else {
-						methods.putAll(entry3.getValue());
-					}
-				}						
-				
-				if (methods != null) {
-					final Object proxy = info.createProxy(memberContainer, methods);
-					if (proxy != null) {
-						final Method setter = info.getAdder();
-						try {
-							setter.invoke(target, proxy);
-						} catch (IllegalAccessException e) {
-							e.printStackTrace();
-						} catch (IllegalArgumentException e) {
-							e.printStackTrace();
-						} catch (InvocationTargetException e) {
-							e.printStackTrace();
-						}
-					}
-				}
-			}
-		}
 	}
-	
+	private static class ServiceCallback {
+		public Method onConnect;
+		public Method onDisconnect;
+	}
 	public static final int EXTERNAL_EVENT_MENU_ITEM_CLICK = 0;
+	
 	public static final int EXTERNAL_EVENT_SERVICE_CONNECT = 1;
 	public static final int EXTERNAL_EVENT_SERVICE_DISCONNECT = 2;
-	
 	private static HashMap<Class<?>, SimpleEventRegistrar> simpleEventRegistrars =
 			new HashMap<Class<?>, SimpleEventRegistrar>();
-	private static HashMap<Class<?>, ExternalEventInfo> externalEvents =
-			new HashMap<Class<?>, ExternalEventInfo>();
+	private static HashMap<Class<?>, HostEventInfo> hostEvents =
+			new HashMap<Class<?>, HostEventInfo>();
+	
 	private static HashMap<String, Class<?>> annotationNameMatch;
+	
 	private static HashMap<Class<?>, String> systemServices;
 	
 	private static LinkedList<ResourceLoader> resourceLoaders;
@@ -407,11 +404,11 @@ public abstract class Extension {
 		simpleEventRegistrars.put(OnBeforeTextChanged.class, textWatcherRegistrar);
 		simpleEventRegistrars.put(OnAfterTextChanged.class, textWatcherRegistrar);
 		
-		externalEvents.put(OnMenuItemClick.class, new OnMenuItemClickExternalEvent());
-		externalEvents.put(OnServiceConnect.class, new OnServiceConnectExternalEvent());
-		externalEvents.put(OnServiceDisconnect.class, new OnServiceDisconnectExternalEvent());
+		hostEvents.put(OnMenuItemClick.class, new OnMenuItemClickHostEvent());
+		hostEvents.put(OnServiceConnect.class, new OnServiceConnectHostEvent());
+		hostEvents.put(OnServiceDisconnect.class, new OnServiceDisconnectHostEvent());
 	}
-	
+
 	private static void initAnnotationNameMatchList() {
 		if (annotationNameMatch != null) return;
 
@@ -421,7 +418,7 @@ public abstract class Extension {
 			final String name = cls.getSimpleName().substring(2);
 			annotationNameMatch.put(name, cls);
 		}
-		for (Class<?> cls: externalEvents.keySet()) {
+		for (Class<?> cls: hostEvents.keySet()) {
 			final String name = cls.getSimpleName().substring(2);
 			annotationNameMatch.put(name, cls);
 		}
@@ -440,7 +437,7 @@ public abstract class Extension {
 		resourceLoaders.add(new IntegerLoader());
 		resourceLoaders.add(new StringLoader());
 	}
-
+	
 	private static void initSystemServiceList() {
 		if (systemServices != null) return;
 		
@@ -502,17 +499,35 @@ public abstract class Extension {
 			systemServices.put(UserManager.class, Context.USER_SERVICE);
 		}
 		if (version >= 19) {
-			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
+//			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
 //			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
 //			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
-			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
+//			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
 		}
 	}
 	
 	private static boolean isRapidClass(Class<?> cls) {
 		return cls.equals(RapidActivity.class);
 	}
-	
+	private static boolean parseAutoEventName(Method method, AutoEventName out) {
+		final String name = method.getName();
+		final int underscoreIndex = name.indexOf('_');
+		
+		if (underscoreIndex < 0) return false;
+		
+		final String idName = name.substring(0, underscoreIndex);
+		final String annotationName = name.substring(underscoreIndex + 1);
+		
+		if (idName.length() == 0 || annotationName.length() == 0) return false;
+
+		initAnnotationNameMatchList();
+
+		out.target = idName;
+		out.event = annotationName;
+		out.annotationType = annotationNameMatch.get(annotationName);
+		
+		return true;
+	}
 	@SuppressWarnings("unchecked")
 	private static void putIntoBundle(Bundle bundle, String key, Object value) {
 		if (value instanceof String) {
@@ -599,15 +614,17 @@ public abstract class Extension {
 	}
 	
 	protected Activity activity;
+
 	protected Object memberContainer;
 	protected ViewFinder viewFinder;
 	
 	private Lifecycle currentLifecycle;
-
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
+
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
+
+	private HashSet<ServiceConnection> serviceConnections;
 	
-	private LinkedList<ServiceConnection> serviceConnections;
 	private HashMap<String, ServiceCallback> serviceCallbacks;
 
 	public Extension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
@@ -615,7 +632,7 @@ public abstract class Extension {
 		this.memberContainer = memberContainer;
 		this.viewFinder = viewFinder;
 	}
-
+	
 	private View findViewById(int id, SparseArray<View> viewMap) {
 		View v = viewMap.get(id);
 		if (v == null) {
@@ -625,86 +642,11 @@ public abstract class Extension {
 		
 		return v;
 	}
-	
+
 	public Lifecycle getCurrentLifecycle() {
 		return currentLifecycle;
 	}
 
-	public void injectCommonThings() {
-		final Intent intent = activity.getIntent();
-		final Bundle extras = (intent == null ? null : intent.getExtras());
-		
-		Class<?> cls = memberContainer.getClass();
-		
-		while (cls != null && !isRapidClass(cls)) {
-			// Fields
-			
-			for (Field field: cls.getDeclaredFields()) {
-				final int modifier = field.getModifiers();
-				if ((modifier & Modifier.STATIC) != 0) continue;
-				
-				// @SystemService
-				if (field.isAnnotationPresent(SystemService.class)) {
-					injectSystemService(field);
-				}
-				
-				// @Extra
-				if (extras != null) {
-					final Extra extra = field.getAnnotation(Extra.class);
-					if (extra != null) {
-						injectExtra(field, extra, extras);
-					}
-				}
-				
-				// @Resource
-				final Resource resource = field.getAnnotation(Resource.class);
-				if (resource != null) {
-					injectResource(field, resource);
-				}
-				
-				// @BindService
-				final BindService bindService = field.getAnnotation(BindService.class);
-				if (bindService != null) {
-					injectBindService(field, bindService);
-				}
-			}
-			
-			// Methods
-			
-			for (final Method method: cls.getDeclaredMethods()) {
-				final int modifier = method.getModifiers();
-				if ((modifier & Modifier.STATIC) != 0) continue;
-
-				for (Annotation annotation: method.getAnnotations()) {
-					if (annotation instanceof Receiver) {
-						final Receiver receiver = (Receiver) annotation;
-						if (receiver != null) {
-							// @Receiver
-							injectReceiver(method, receiver);
-						}
-						continue;
-					}
-					
-					final Class<?> annotationType = annotation.annotationType();
-
-					final ExternalEventInfo info = externalEvents.get(annotationType);
-					if (info != null) {
-						final Iterable<?> ids = info.getTargetIds(annotation);
-						if (ids != null) {
-							final int type = info.getType();
-							for (Object id: ids) {
-								registerExternalEvent(type, id, method);
-							}
-						}
-						continue;
-					}
-				}
-			}
-			
-			cls = cls.getSuperclass();
-		}
-	}
-	
 	private void injectBindService(final Field field, BindService bindService) {
 		// Get stub class
 		
@@ -761,12 +703,53 @@ public abstract class Extension {
 		
 		final ServiceConnection conn = new ServiceConnection() {
 			@Override
+			public void onServiceConnected(ComponentName name, IBinder service) {
+				Object obj = null;
+				try {
+					obj = asInterface.invoke(null, service);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+				
+				if (obj != null) {
+					try {
+						field.setAccessible(true);
+						field.set(memberContainer, obj);
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
+					}
+
+					if (serviceCallbacks != null && alias.length() > 0) {
+						final ServiceCallback callback = serviceCallbacks.get(alias);
+						if (callback != null && callback.onConnect != null) {
+							try {
+								callback.onConnect.setAccessible(true);
+								callback.onConnect.invoke(memberContainer, alias);
+							} catch (InvocationTargetException e) {
+								e.printStackTrace();
+							} catch (IllegalAccessException e) {
+								e.printStackTrace();
+							} catch (IllegalArgumentException e) {
+								e.printStackTrace();
+							}
+						}
+					}
+				}
+			}
+			
+			@Override
 			public void onServiceDisconnected(ComponentName name) {
 				if (serviceConnections != null) {
 					serviceConnections.remove(this);
 				}
 				
-				if (serviceCallbacks != null) {
+				if (serviceCallbacks != null && alias.length() > 0) {
 					final ServiceCallback callback = serviceCallbacks.get(alias);
 					if (callback != null && callback.onDisconnect != null) {
 						try {
@@ -793,57 +776,111 @@ public abstract class Extension {
 					e.printStackTrace();
 				}
 			}
-			
-			@Override
-			public void onServiceConnected(ComponentName name, IBinder service) {
-				Object obj = null;
-				try {
-					obj = asInterface.invoke(null, service);
-				} catch (IllegalAccessException e) {
-					e.printStackTrace();
-				} catch (IllegalArgumentException e) {
-					e.printStackTrace();
-				} catch (InvocationTargetException e) {
-					e.printStackTrace();
-				}
-				
-				if (obj != null) {
-					try {
-						field.setAccessible(true);
-						field.set(memberContainer, obj);
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					}
-
-					if (serviceCallbacks != null) {
-						final ServiceCallback callback = serviceCallbacks.get(alias);
-						if (callback != null && callback.onConnect != null) {
-							try {
-								callback.onConnect.setAccessible(true);
-								callback.onConnect.invoke(memberContainer, alias);
-							} catch (InvocationTargetException e) {
-								e.printStackTrace();
-							} catch (IllegalAccessException e) {
-								e.printStackTrace();
-							} catch (IllegalArgumentException e) {
-								e.printStackTrace();
-							}
-						}
-					}
-				}
-			}
 		};
 		
 		if (serviceConnections == null) {
-			serviceConnections = new LinkedList<ServiceConnection>();
+			serviceConnections = new HashSet<ServiceConnection>();
 		}
 		serviceConnections.add(conn);
 		
 		activity.bindService(intent, conn, flags);
 	}
 
+	public void injectCommonThings() {
+		final Intent intent = activity.getIntent();
+		final Bundle extras = (intent == null ? null : intent.getExtras());
+		
+		AutoEventName autoEventName = null;
+		
+		Class<?> cls = memberContainer.getClass();
+		
+		while (cls != null && !isRapidClass(cls)) {
+			// Fields
+			
+			for (Field field: cls.getDeclaredFields()) {
+				final int modifier = field.getModifiers();
+				if ((modifier & Modifier.STATIC) != 0) continue;
+				
+				// @SystemService
+				if (field.isAnnotationPresent(SystemService.class)) {
+					injectSystemService(field);
+				}
+				
+				// @Extra
+				if (extras != null) {
+					final Extra extra = field.getAnnotation(Extra.class);
+					if (extra != null) {
+						injectExtra(field, extra, extras);
+					}
+				}
+				
+				// @Resource
+				final Resource resource = field.getAnnotation(Resource.class);
+				if (resource != null) {
+					injectResource(field, resource);
+				}
+				
+				// @BindService
+				final BindService bindService = field.getAnnotation(BindService.class);
+				if (bindService != null) {
+					injectBindService(field, bindService);
+				}
+			}
+			
+			// Methods
+			
+			for (final Method method: cls.getDeclaredMethods()) {
+				final int modifier = method.getModifiers();
+				if ((modifier & Modifier.STATIC) != 0) continue;
+
+				for (Annotation annotation: method.getAnnotations()) {
+					final Class<?> annotationType = annotation.annotationType();
+
+					if (annotationType.equals(Receiver.class)) {
+						final Receiver receiver = (Receiver) annotation;
+						if (receiver != null) {
+							// @Receiver
+							injectReceiver(method, receiver);
+						}
+						continue;
+					}
+					
+					if (annotationType.equals(EventHandler.class)) {
+						if (autoEventName == null) {
+							autoEventName = new AutoEventName();
+						}
+						
+						if (parseAutoEventName(method, autoEventName) && autoEventName.annotationType != null) {
+							final HostEventInfo info = hostEvents.get(autoEventName.annotationType);
+							if (info != null) {
+								final Object id = info.parseId(activity, autoEventName.target);
+								if (id != null) {
+									registerHostEvent(info.getType(), id, method);
+								}
+							}
+						}
+						
+						continue;
+					}
+
+					final HostEventInfo info = hostEvents.get(annotationType);
+					if (info != null) {
+						final Iterable<?> ids = info.getTargetIds(annotation);
+						if (ids != null) {
+							final int type = info.getType();
+							for (Object id: ids) {
+								registerHostEvent(type, id, method);
+							}
+						}
+						continue;
+					}
+				}
+			}
+			
+			cls = cls.getSuperclass();
+		}
+	}
+	
 	private void injectExtra(Field field, Extra extra, Bundle extras) {
 		String key = extra.value();
 		if (key.length() == 0) {
@@ -862,7 +899,7 @@ public abstract class Extension {
 			}
 		}
 	}
-
+	
 	private void injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
 		int id = layoutElement.value();
 		if (id == 0) {
@@ -891,7 +928,7 @@ public abstract class Extension {
 			e.printStackTrace();
 		}
 	}
-
+	
 	private void injectReceiver(final Method method, Receiver receiver) {
 		if (receivers == null) {
 			receivers = new HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter,BroadcastReceiver>>>();
@@ -1052,7 +1089,7 @@ public abstract class Extension {
 			}
 		}
 	}
-	
+
 	public void injectViews() {
 		final SparseArray<View> viewMap = new SparseArray<View>();
 		
@@ -1124,7 +1161,7 @@ public abstract class Extension {
 		eventInjector.injectUnregisterableEvents(viewMap);
 	}
 	
-	public void registerExternalEvent(int type, Object id, Method method) {
+	public void registerHostEvent(int type, Object id, Method method) {
 		switch (type) {
 		case EXTERNAL_EVENT_SERVICE_CONNECT:
 		case EXTERNAL_EVENT_SERVICE_DISCONNECT:
@@ -1160,7 +1197,7 @@ public abstract class Extension {
 			handler.registrar.registerEventListener(handler.target, handler.dispatcher);
 		}
 	}
-
+	
 	public void registerListenersToCurrentLifecycle() {
 		for (Lifecycle lifecycle: Lifecycle.values()) {
 			if (lifecycle.getValue() <= currentLifecycle.getValue()) {
@@ -1198,7 +1235,7 @@ public abstract class Extension {
 		
 		list.add(new UnregisterableEventHandler(registrar, target, dispatcher));
 	}
-	
+
 	public void restoreInstanceStates(Bundle bundle) {
 		Class<?> cls = memberContainer.getClass();
 		while (cls != null && !isRapidClass(cls)) {
@@ -1228,7 +1265,7 @@ public abstract class Extension {
 			cls = cls.getSuperclass();
 		}
 	}
-	
+
 	public void saveInstanceStates(Bundle bundle) {
 		Class<?> cls = memberContainer.getClass();
 		while (cls != null && !isRapidClass(cls)) {
@@ -1261,13 +1298,25 @@ public abstract class Extension {
 	public void setCurrentLifecycle(Lifecycle currentLifecycle) {
 		this.currentLifecycle = currentLifecycle;
 	}
-
+	
+	public void unbindServices() {
+		if (serviceConnections == null) return;
+		
+		for (ServiceConnection conn: serviceConnections) {
+			try {
+				activity.unbindService(conn);
+			} catch (IllegalArgumentException e) {
+			}
+		}
+		serviceConnections = null;
+	}
+	
 	public void unregisterAllListeners() {
 		unregisterListeners(Lifecycle.RESUME);
 		unregisterListeners(Lifecycle.START);
 		unregisterListeners(Lifecycle.CREATE);
 	}
-
+	
 	public void unregisterListeners(Lifecycle lifecycle) {
 		if (unregEvents == null) return;
 		
@@ -1293,22 +1342,5 @@ public abstract class Extension {
 				e.printStackTrace();
 			}
 		}
-	}
-	
-	public void unbindServices() {
-		if (serviceConnections == null) return;
-		
-		for (ServiceConnection conn: serviceConnections) {
-			try {
-				activity.unbindService(conn);
-			} catch (IllegalArgumentException e) {
-			}
-		}
-		serviceConnections = null;
-	}
-	
-	private static class ServiceCallback {
-		public Method onConnect;
-		public Method onDisconnect;
 	}
 }

@@ -8,7 +8,7 @@ import rapidui.Extension;
 import rapidui.ResourceUtils;
 import rapidui.annotation.event.OnMenuItemClick;
 
-public class OnMenuItemClickExternalEvent extends ExternalEventInfo {
+public class OnMenuItemClickHostEvent extends HostEventInfo {
 	@Override
 	public Iterable<?> getTargetIds(Annotation annotation) {
 		return Arrays.asList(((OnMenuItemClick) annotation).value());

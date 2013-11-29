@@ -9,10 +9,10 @@ import android.test.UiThreadTest;
 import android.view.KeyEvent;
 import android.view.View;
 
-public class BasicTest extends SingleLaunchActivityTestCase<TestActivity> {
+public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 	private TestActivity activity;
 	
-	public BasicTest() {
+	public UnitTest() {
 		super("rapidui.test.unittest", TestActivity.class);
 	}
 	
