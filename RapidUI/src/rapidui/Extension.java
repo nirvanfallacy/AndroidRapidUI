@@ -10,6 +10,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
@@ -198,8 +199,14 @@ public abstract class Extension {
 			final Class<?> annotationType = autoEventName.annotationType;
 			
 			if (annotationType != null) {
-				final HostEventInfo info = hostEvents.get(annotationType);
-				if (info != null) return false;
+				// Skip if it is a host event
+				
+				ensureHostEventList();
+				if (hostEvents.containsKey(annotationType)) return false;
+				
+				//
+				
+				ensureSimpleEventRegistrarList();
 				
 				final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType);
 				if (registrar != null) {
@@ -393,10 +400,8 @@ public abstract class Extension {
 	public static final int HOST_EVENT_SERVICE_DISCONNECT = 2;
 	public static final int HOST_EVENT_GLOBAL_LAYOUT = 3;
 	
-	private static HashMap<Class<?>, SimpleEventRegistrar> simpleEventRegistrars =
-			new HashMap<Class<?>, SimpleEventRegistrar>();
-	private static HashMap<Class<?>, HostEventInfo> hostEvents =
-			new HashMap<Class<?>, HostEventInfo>();
+	private static HashMap<Class<?>, SimpleEventRegistrar> simpleEventRegistrars;
+	private static HashMap<Class<?>, HostEventInfo> hostEvents;
 	
 	private static HashMap<String, Class<?>> annotationNameMatch;
 	
@@ -404,7 +409,11 @@ public abstract class Extension {
 	
 	private static LinkedList<ResourceLoader> resourceLoaders;
 	
-	static {
+	private static void ensureSimpleEventRegistrarList() {
+		if (simpleEventRegistrars != null) return;
+		
+		simpleEventRegistrars = new HashMap<Class<?>, SimpleEventRegistrar>();
+
 		simpleEventRegistrars.put(OnClick.class, new OnClickRegistrar());
 		simpleEventRegistrars.put(OnCreateContextMenu.class, new OnCreateContextMenuRegistrar());
 		simpleEventRegistrars.put(OnDrag.class, new OnDragRegistrar());
@@ -418,7 +427,13 @@ public abstract class Extension {
 		simpleEventRegistrars.put(OnTextChanged.class, textWatcherRegistrar);
 		simpleEventRegistrars.put(OnBeforeTextChanged.class, textWatcherRegistrar);
 		simpleEventRegistrars.put(OnAfterTextChanged.class, textWatcherRegistrar);
+	}
+	
+	private static void ensureHostEventList() {
+		if (hostEvents != null) return;
 		
+		hostEvents = new HashMap<Class<?>, HostEventInfo>();
+
 		hostEvents.put(OnMenuItemClick.class, new OnMenuItemClickHostEvent());
 		hostEvents.put(OnServiceConnect.class, new OnServiceConnectHostEvent());
 		hostEvents.put(OnServiceDisconnect.class, new OnServiceDisconnectHostEvent());
@@ -429,6 +444,9 @@ public abstract class Extension {
 		if (annotationNameMatch != null) return;
 
 		annotationNameMatch = new HashMap<String, Class<?>>();
+		
+		ensureSimpleEventRegistrarList();
+		ensureHostEventList();
 		
 		for (Class<?> cls: simpleEventRegistrars.keySet()) {
 			final String name = cls.getSimpleName().substring(2);
@@ -885,6 +903,8 @@ public abstract class Extension {
 						}
 						
 						if (parseAutoEventName(method, autoEventName) && autoEventName.annotationType != null) {
+							ensureHostEventList();
+							
 							final HostEventInfo info = hostEvents.get(autoEventName.annotationType);
 							if (info != null) {
 								final Object id = info.parseId(activity, autoEventName.target);
@@ -896,6 +916,8 @@ public abstract class Extension {
 						
 						continue;
 					}
+					
+					ensureHostEventList();
 
 					final HostEventInfo info = hostEvents.get(annotationType);
 					if (info != null) {
@@ -1210,6 +1232,8 @@ public abstract class Extension {
 						continue;
 					}
 					
+					ensureSimpleEventRegistrarList();
+					
 					final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType);
 					if (registrar != null) {
 						eventInjector.categorizeSimpleEvent(registrar, annotation, method);
@@ -1478,5 +1502,28 @@ public abstract class Extension {
 		}
 		
 		return eventName;
+	}
+	
+	public void collect() {
+		hostEvents = null;
+		simpleEventRegistrars = null;
+		annotationNameMatch = null;
+		systemServices = null;
+		resourceLoaders = null;
+		
+		if (typefaces != null) {
+			final Iterator<Entry<String, WeakReference<Typeface>>> it = typefaces.entrySet().iterator();
+			while (it.hasNext()) {
+				final Entry<String, WeakReference<Typeface>> entry = it.next();
+				final WeakReference<Typeface> ref = entry.getValue();
+				if (ref.get() == null) {
+					it.remove();
+				}
+			}
+			
+			if (typefaces.isEmpty()) {
+				typefaces = null;
+			}
+		}
 	}
 }

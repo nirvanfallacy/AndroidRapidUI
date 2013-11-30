@@ -104,4 +104,10 @@ public class RapidActivity extends android.app.Activity {
 	public boolean onOptionsItemSelected(MenuItem item) {
 		return (ext.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
 	}
+	
+	@Override
+	public void onLowMemory() {
+		super.onLowMemory();
+		ext.collect();
+	}
 }
