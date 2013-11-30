@@ -7,8 +7,8 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface LayoutElement {
+public @interface Font {
 	public int value() default 0;
 	public int id() default 0;
-	public int font() default 0;
+	public String path() default "";
 }

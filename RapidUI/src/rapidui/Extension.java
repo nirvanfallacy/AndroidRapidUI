@@ -2,6 +2,7 @@ package rapidui;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -15,6 +16,7 @@ import java.util.Map.Entry;
 import rapidui.annotation.BindService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
+import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Lifecycle;
@@ -88,6 +90,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
+import android.graphics.Typeface;
 import android.hardware.SensorManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
@@ -119,6 +122,7 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
+import android.widget.TextView;
 
 public abstract class Extension {
 	private static class AutoEventName {
@@ -849,6 +853,12 @@ public abstract class Extension {
 				if (bindService != null) {
 					injectBindService(field, bindService);
 				}
+				
+				// @Font
+				final Font font = field.getAnnotation(Font.class);
+				if (font != null) {
+					injectFont(field, font);
+				}
 			}
 			
 			// Methods
@@ -909,6 +919,26 @@ public abstract class Extension {
 		}
 	}
 	
+	private void injectFont(Field field, Font font) {
+		String path = font.path();
+		if (path.length() == 0) {
+			final int id = font.value() | font.id();
+			path = activity.getString(id);
+		}
+		
+		final Typeface typeface = loadTypeface(path);
+		if (typeface != null) {
+			try {
+				field.setAccessible(true);
+				field.set(memberContainer, typeface);
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	private void injectExtra(Field field, Extra extra, Bundle extras) {
 		String key = extra.value();
 		if (key.length() == 0) {
@@ -928,8 +958,8 @@ public abstract class Extension {
 		}
 	}
 	
-	private void injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
-		int id = layoutElement.value();
+	private View injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
+		int id = layoutElement.value() | layoutElement.id();
 		if (id == 0) {
 			String name = field.getName();
 			if (name.length() >= 2 && name.charAt(0) == 'm') {
@@ -949,12 +979,22 @@ public abstract class Extension {
 			
 			if (v != null) {
 				viewMap.put(id, v);
+				
+				if (v instanceof TextView && layoutElement.font() != 0) {
+					final Typeface typeface = loadTypeface(layoutElement.font());
+					final TextView tv = (TextView) v;
+					tv.setTypeface(typeface);
+				}
+				
+				return v;
 			}
 		} catch (IllegalAccessException e) {
 			e.printStackTrace();
 		} catch (IllegalArgumentException e) {
 			e.printStackTrace();
 		}
+		
+		return null;
 	}
 	
 	private void injectReceiver(final Method method, Receiver receiver) {
@@ -1036,10 +1076,7 @@ public abstract class Extension {
 		
 		initResourceLoaders();
 		
-		int id = resource.id();
-		if (id == 0) {
-			id = resource.value();
-		}
+		final int id = resource.id() | resource.value();
 		
 		Object value = null;
 		final ResourceType resType = resource.type();
@@ -1189,6 +1226,31 @@ public abstract class Extension {
 		eventInjector.injectUnregisterableEvents(viewMap);
 	}
 	
+	private static HashMap<String, WeakReference<Typeface>> typefaces;
+
+	private Typeface loadTypeface(String path) {
+		if (typefaces == null) {
+			typefaces = new HashMap<String, WeakReference<Typeface>>();
+		} else {
+			final WeakReference<Typeface> ref = typefaces.get(path);
+			final Typeface typeface = (ref == null ? null : ref.get());
+			if (typeface != null) {
+				return typeface;
+			}
+		}
+		
+		final Typeface typeface = Typeface.createFromAsset(activity.getAssets(), path);
+		if (typeface != null) {
+			typefaces.put(path, new WeakReference<Typeface>(typeface));
+		}
+		
+		return typeface;
+	}
+	
+	private Typeface loadTypeface(int id) {
+		return loadTypeface(activity.getString(id));
+	}
+
 	public void registerHostEvent(Object annotation, int type, Object id, final Method method) {
 		switch (type) {
 		case HOST_EVENT_SERVICE_CONNECT:
@@ -1198,7 +1260,7 @@ public abstract class Extension {
 			}
 			
 			final String alias = (String) id;
-			if (!TextUtils.isEmpty(alias)) break;
+			if (TextUtils.isEmpty(alias)) break;
 			
 			ServiceCallback callback = serviceCallbacks.get(alias);
 			if (callback == null) {
@@ -1217,7 +1279,9 @@ public abstract class Extension {
 		case HOST_EVENT_GLOBAL_LAYOUT:
 			final boolean once = (annotation == null ? true : ((OnGlobalLayout) annotation).once());
 			
-			activity.getWindow().getDecorView().getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+			final ViewTreeObserver observer = activity.getWindow().getDecorView().getViewTreeObserver();
+			observer.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+				@SuppressWarnings("deprecation")
 				@Override
 				public void onGlobalLayout() {
 					if (once) {

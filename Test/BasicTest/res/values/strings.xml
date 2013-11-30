@@ -12,5 +12,13 @@
     <string name="title_activity_global_layout_test">GlobalLayoutTestActivity</string>
     <string name="global_layout_test">Global layout test</string>
     <string name="hello_world">Hello world!</string>
+    
+    <string name="font_android">Android.ttf</string>
+    
+    <string name="font_test_activity">Font test activity</string>
+    
+    <string name="font_test">Font test</string>
+    
+    <string name="hello_android">Hello android!</string>
 
 </resources>
