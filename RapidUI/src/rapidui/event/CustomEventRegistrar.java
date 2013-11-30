@@ -32,7 +32,7 @@ public class CustomEventRegistrar extends UnregisterableEventRegistrar {
 	}
 
 	@Override
-	public Object createEventDispatcher(Object instance,
+	public Object createEventDispatcher(Object target, Object instance,
 			HashMap<Class<?>, Method> methods) {
 		return null;
 	}

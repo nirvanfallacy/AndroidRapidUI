@@ -13,13 +13,17 @@ import rapidui.test.unittest.R;
 import android.app.AlarmManager;
 import android.location.LocationManager;
 import android.media.AudioManager;
+import android.os.Bundle;
 import android.text.Editable;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.TextView;
 
 @Layout
@@ -35,17 +39,20 @@ public class TestActivity extends RapidActivity {
 	boolean customHandler2Invoked;
 	boolean customHandler3Invoked;
 	
+	int listItemClicked;
+	
 	String editTextContent;
 	
 	@LayoutElement                        TextView textHelloWorld;
 	@LayoutElement                        TextView mTextHelloWorld;
 	@LayoutElement(R.id.text_hello_world) TextView helloWorld;
-	@LayoutElement                        CustomView customView;
-	@LayoutElement                        EditText editText;
 	
+	@LayoutElement CustomView customView;
+	@LayoutElement EditText editText;
 	@LayoutElement Button button1;
 	@LayoutElement Button button2;
 	@LayoutElement CheckBox checkbox1;
+	@LayoutElement ListView listView;
 	
 	@SystemService AlarmManager alarmManager;
 	@SystemService AudioManager audioManager;
@@ -61,6 +68,16 @@ public class TestActivity extends RapidActivity {
 	
 	@Resource
 	String appName;
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		
+		final String[] items = getResources().getStringArray(R.array.test_list_item);
+		final ArrayAdapter<String> listAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, items);
+		
+		listView.setAdapter(listAdapter);
+	}
 
 	@EventHandler
 	boolean actionSettings_MenuItemClick(MenuItem item) {
@@ -106,5 +123,10 @@ public class TestActivity extends RapidActivity {
 	@EventHandler
 	void customView_Test3() {
 		customHandler3Invoked = true;
+	}
+	
+	@EventHandler
+	void listView_ItemClick(AdapterView<?> parent, View v, int position, long id) {
+		listItemClicked = position;
 	}
 }

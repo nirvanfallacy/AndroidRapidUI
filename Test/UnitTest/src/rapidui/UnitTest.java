@@ -95,6 +95,10 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 		activity.editTextContent = null;
 		activity.editText.setText("asdf");
 		assertEquals("asdf", activity.editTextContent);
+		
+		activity.listItemClicked = -1;
+		assertTrue(activity.listView.performItemClick(null, 1, 0));
+		assertEquals(1, activity.listItemClicked);
 	}
 	
 	public void testResources() {

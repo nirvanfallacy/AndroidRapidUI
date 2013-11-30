@@ -16,7 +16,7 @@ public class OnTouchRegistrar extends SimpleEventRegistrar {
 	}
 
 	@Override
-	public Object createEventDispatcher(final Object instance,
+	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 
 		final Method method = methods.get(OnTouch.class);

@@ -34,9 +34,13 @@ import rapidui.annotation.event.OnCreateContextMenu;
 import rapidui.annotation.event.OnDrag;
 import rapidui.annotation.event.OnFocusChange;
 import rapidui.annotation.event.OnGlobalLayout;
+import rapidui.annotation.event.OnItemClick;
+import rapidui.annotation.event.OnItemLongClick;
 import rapidui.annotation.event.OnKey;
 import rapidui.annotation.event.OnLongClick;
 import rapidui.annotation.event.OnMenuItemClick;
+import rapidui.annotation.event.OnScroll;
+import rapidui.annotation.event.OnScrollStateChanged;
 import rapidui.annotation.event.OnServiceConnect;
 import rapidui.annotation.event.OnServiceDisconnect;
 import rapidui.annotation.event.OnTextChanged;
@@ -50,9 +54,12 @@ import rapidui.event.OnCreateContextMenuRegistrar;
 import rapidui.event.OnDragRegistrar;
 import rapidui.event.OnFocusChangeRegistrar;
 import rapidui.event.OnGlobalLayoutHostEvent;
+import rapidui.event.OnItemClickRegistrar;
+import rapidui.event.OnItemLongClickRegistrar;
 import rapidui.event.OnKeyRegistrar;
 import rapidui.event.OnLongClickRegistrar;
 import rapidui.event.OnMenuItemClickHostEvent;
+import rapidui.event.OnScrollRegistrar;
 import rapidui.event.OnServiceConnectHostEvent;
 import rapidui.event.OnServiceDisconnectHostEvent;
 import rapidui.event.OnTouchRegistrar;
@@ -353,8 +360,10 @@ public abstract class Extension {
 					final SimpleEventRegistrar registrar = entry2.getKey();
 					final HashMap<Class<?>, Method> methods = entry2.getValue();
 					
-					final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
-					registrar.registerEventListener(target, dispatcher);
+					final Object dispatcher = registrar.createEventDispatcher(target, memberContainer, methods);
+					if (dispatcher != null) {
+						registrar.registerEventListener(target, dispatcher);
+					}
 				}
 			}
 		}
@@ -382,9 +391,10 @@ public abstract class Extension {
 						final Lifecycle lifecycle = entry3.getKey();
 						final HashMap<Class<?>, Method> methods = entry3.getValue();
 						
-						final Object dispatcher = registrar.createEventDispatcher(memberContainer, methods);
-						
-						registerUnregisterableEvent(lifecycle, registrar, target, dispatcher);
+						final Object dispatcher = registrar.createEventDispatcher(target, memberContainer, methods);
+						if (dispatcher != null) {
+							registerUnregisterableEvent(lifecycle, registrar, target, dispatcher);
+						}
 					}
 				}
 			}
@@ -422,11 +432,17 @@ public abstract class Extension {
 		simpleEventRegistrars.put(OnLongClick.class, new OnLongClickRegistrar());
 		simpleEventRegistrars.put(OnTouch.class, new OnTouchRegistrar());
 		simpleEventRegistrars.put(OnCheckedChange.class, new OnCheckedChangeRegistrar());
+		simpleEventRegistrars.put(OnItemClick.class, new OnItemClickRegistrar());
+		simpleEventRegistrars.put(OnItemLongClick.class, new OnItemLongClickRegistrar());
 		
 		final TextWatcherRegistrar textWatcherRegistrar = new TextWatcherRegistrar();
 		simpleEventRegistrars.put(OnTextChanged.class, textWatcherRegistrar);
 		simpleEventRegistrars.put(OnBeforeTextChanged.class, textWatcherRegistrar);
 		simpleEventRegistrars.put(OnAfterTextChanged.class, textWatcherRegistrar);
+		
+		final OnScrollRegistrar scrollRegistrar = new OnScrollRegistrar();
+		simpleEventRegistrars.put(OnScroll.class, scrollRegistrar);
+		simpleEventRegistrars.put(OnScrollStateChanged.class, scrollRegistrar);
 	}
 	
 	private static void ensureHostEventList() {

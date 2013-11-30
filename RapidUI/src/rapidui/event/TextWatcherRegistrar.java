@@ -28,7 +28,7 @@ public class TextWatcherRegistrar extends UnregisterableEventRegistrar {
 	}
 
 	@Override
-	public Object createEventDispatcher(final Object instance,
+	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 
 		final Method onTextChanged = methods.get(OnTextChanged.class);
