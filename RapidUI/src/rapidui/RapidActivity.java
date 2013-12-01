@@ -8,7 +8,7 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 
 public class RapidActivity extends android.app.Activity {
-	private ActivityExtension ext = new ActivityExtension(this);
+	private ActivityHostExtension ext = new ActivityHostExtension(this);
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {

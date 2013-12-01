@@ -132,7 +132,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 import android.widget.TextView;
 
-public abstract class Extension {
+public abstract class HostExtension {
 	private static class AutoEventName {
 		public String target;
 		public String event;
@@ -689,7 +689,7 @@ public abstract class Extension {
 	private HashSet<ServiceConnection> serviceConnections;
 	private HashMap<String, ServiceCallback> serviceCallbacks;
 
-	public Extension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
+	public HostExtension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
 		this.viewFinder = viewFinder;

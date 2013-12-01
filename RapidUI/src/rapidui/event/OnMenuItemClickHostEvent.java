@@ -4,7 +4,7 @@ import java.lang.annotation.Annotation;
 import java.util.Arrays;
 
 import android.content.Context;
-import rapidui.Extension;
+import rapidui.HostExtension;
 import rapidui.ResourceUtils;
 import rapidui.annotation.event.OnMenuItemClick;
 
@@ -16,7 +16,7 @@ public class OnMenuItemClickHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return Extension.HOST_EVENT_MENU_ITEM_CLICK;
+		return HostExtension.HOST_EVENT_MENU_ITEM_CLICK;
 	}
 
 	@Override

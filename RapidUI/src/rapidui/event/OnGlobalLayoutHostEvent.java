@@ -2,7 +2,7 @@ package rapidui.event;
 
 import java.lang.annotation.Annotation;
 
-import rapidui.Extension;
+import rapidui.HostExtension;
 import android.content.Context;
 
 public class OnGlobalLayoutHostEvent extends HostEventInfo {
@@ -13,7 +13,7 @@ public class OnGlobalLayoutHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return Extension.HOST_EVENT_GLOBAL_LAYOUT;
+		return HostExtension.HOST_EVENT_GLOBAL_LAYOUT;
 	}
 
 	@Override
