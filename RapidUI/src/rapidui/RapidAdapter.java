@@ -8,10 +8,12 @@ import java.util.LinkedList;
 
 import rapidui.adapter.DataDigger;
 import rapidui.adapter.FieldDigger;
+import rapidui.adapter.ImageBinder;
 import rapidui.adapter.MethodDigger;
 import rapidui.adapter.TextBinder;
 import rapidui.adapter.ViewBinder;
 import rapidui.annotation.AdapterItem;
+import rapidui.annotation.adapter.BindToImage;
 import rapidui.annotation.adapter.BindToText;
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -28,6 +30,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		binders = new HashMap<Class<?>, ViewBinder>();
 		
 		binders.put(BindToText.class, new TextBinder());
+		binders.put(BindToImage.class, new ImageBinder());
 	}
 	
 	private LayoutInflater inflater;
@@ -43,10 +46,9 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		
 		for (int i = 0, c = classes.length; i < c; ++i) {
 			final ViewType viewType = new ViewType(i + 1);
-			
 			final Class<?> clazz = classes[i];
 			
-			for (Class<?> cls = classes[i];
+			for (Class<?> cls = clazz;
 					cls != null && !cls.equals(Object.class);
 					cls = cls.getSuperclass()) {
 				
@@ -131,7 +133,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 			final View v = (View) convertView.getTag(digger.getId());
 			if (v == null) continue;
 			
-			digger.dig(item, v);
+			digger.dig(item, v, null);
 		}
 		
 		return convertView;

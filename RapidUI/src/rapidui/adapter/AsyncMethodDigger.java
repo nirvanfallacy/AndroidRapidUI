@@ -3,23 +3,30 @@ package rapidui.adapter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import rapidui.AsyncCallback;
 import rapidui.Canceler;
 import android.view.View;
 
-public class MethodDigger extends DataDigger {
+public class AsyncMethodDigger extends DataDigger {
 	private Method method;
 	
-	public MethodDigger(Method method, ViewBinder binder) {
+	public AsyncMethodDigger(Method method, ViewBinder binder) {
 		super(binder);
 		this.method = method;
 	}
 
 	@Override
-	public void dig(Object instance, View v, Canceler canceler) {
+	public void dig(Object instance, final View v, final Canceler canceler) {
+		final AsyncCallback<?> callback = new AsyncCallback<Object>() {
+			@Override
+			public void callback(Object result) {
+				bind(v, result);
+			}
+		};
+		
 		method.setAccessible(true);
 		try {
-			final Object value = method.invoke(instance);
-			bind(v, value);
+			method.invoke(instance, callback);
 		} catch (IllegalAccessException e) {
 			e.printStackTrace();
 		} catch (IllegalArgumentException e) {
@@ -27,5 +34,10 @@ public class MethodDigger extends DataDigger {
 		} catch (InvocationTargetException e) {
 			e.printStackTrace();
 		}
+	}
+
+	@Override
+	public boolean isAsync() {
+		return true;
 	}
 }

@@ -1,5 +1,6 @@
 package rapidui.adapter;
 
+import rapidui.Canceler;
 import android.view.View;
 
 public abstract class DataDigger {
@@ -14,7 +15,11 @@ public abstract class DataDigger {
 		binder.bind(v, value);
 	}
 	
-	public abstract void dig(Object instance, View v);
+	public abstract void dig(Object instance, View v, Canceler canceler);
+	
+	public boolean isAsync() {
+		return false;
+	}
 
 	public int getId() {
 		return id;

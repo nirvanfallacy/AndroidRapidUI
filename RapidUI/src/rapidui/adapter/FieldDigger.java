@@ -2,6 +2,7 @@ package rapidui.adapter;
 
 import java.lang.reflect.Field;
 
+import rapidui.Canceler;
 import android.view.View;
 
 public class FieldDigger extends DataDigger {
@@ -13,7 +14,7 @@ public class FieldDigger extends DataDigger {
 	}
 
 	@Override
-	public void dig(Object instance, View v) {
+	public void dig(Object instance, View v, Canceler canceler) {
 		field.setAccessible(true);
 		try {
 			final Object value = field.get(instance);
