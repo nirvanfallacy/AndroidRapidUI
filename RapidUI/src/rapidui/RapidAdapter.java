@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.LinkedList;
 
+import rapidui.adapter.AsyncMethodDigger;
 import rapidui.adapter.DataDigger;
 import rapidui.adapter.FieldDigger;
 import rapidui.adapter.ImageBinder;
@@ -16,6 +17,7 @@ import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToImage;
 import rapidui.annotation.adapter.BindToText;
 import android.content.Context;
+import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,6 +45,9 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		
 		ensureBinders();
 		viewTypeMap = new HashMap<Class<?>, ViewType>();
+		
+		final SparseArray<MethodDigger> syncMethods = new SparseArray<MethodDigger>();
+		final SparseArray<AsyncMethodDigger> asyncMethods = new SparseArray<AsyncMethodDigger>();
 		
 		for (int i = 0, c = classes.length; i < c; ++i) {
 			final ViewType viewType = new ViewType(i + 1);
@@ -78,16 +83,37 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				for (Method method: cls.getDeclaredMethods()) {
 					for (Annotation annotation: method.getAnnotations()) {
 						final ViewBinder binder = binders.get(annotation.annotationType());
-						if (binder != null) {
-							final int id = binder.getId(annotation);
-							if (id == 0) continue;
+						if (binder == null) continue;
+						
+						final int id = binder.getId(annotation);
+						if (id == 0) continue;
+
+						final Class<?>[] paramTypes = method.getParameterTypes();
+						if (paramTypes.length == 0) {
+							// Sync getter
 							
-							final MethodDigger fd = new MethodDigger(method, binder);
-							fd.setId(id);
+							MethodDigger digger = syncMethods.get(id);
+							if (digger == null) {
+								digger = new MethodDigger(binder);
+							}
 							
-							viewType.diggers.add(fd);
+							digger.setGetter(method);
+						} else if (paramTypes.length == 1) {
+							if (paramTypes[0].isAssignableFrom(AsyncCallback.class)) {
+								// Async getter
+							} else {
+								// Setter
+							}
+						} else {
 							break;
 						}
+						
+						final MethodDigger fd = new MethodDigger(method, binder);
+						fd.setId(id);
+						
+						viewType.diggers.add(fd);
+						
+						break;
 					}
 				}
 			}

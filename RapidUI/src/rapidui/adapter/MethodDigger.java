@@ -7,18 +7,26 @@ import rapidui.Canceler;
 import android.view.View;
 
 public class MethodDigger extends DataDigger {
-	private Method method;
+	private Method getter;
+	private Method setter;
 	
-	public MethodDigger(Method method, ViewBinder binder) {
+	public MethodDigger(ViewBinder binder) {
 		super(binder);
-		this.method = method;
+	}
+	
+	public void setGetter(Method getter) {
+		this.getter = getter;
+	}
+	
+	public void setSetter(Method setter) {
+		this.setter = setter;
 	}
 
 	@Override
 	public void dig(Object instance, View v, Canceler canceler) {
-		method.setAccessible(true);
+		getter.setAccessible(true);
 		try {
-			final Object value = method.invoke(instance);
+			final Object value = getter.invoke(instance);
 			bind(v, value);
 		} catch (IllegalAccessException e) {
 			e.printStackTrace();
