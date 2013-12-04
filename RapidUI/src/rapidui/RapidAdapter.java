@@ -46,12 +46,13 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		ensureBinders();
 		viewTypeMap = new HashMap<Class<?>, ViewType>();
 		
-		final SparseArray<MethodDigger> syncMethods = new SparseArray<MethodDigger>();
-		final SparseArray<AsyncMethodDigger> asyncMethods = new SparseArray<AsyncMethodDigger>();
+		final SparseArray<MethodDigger> methods = new SparseArray<MethodDigger>();
 		
 		for (int i = 0, c = classes.length; i < c; ++i) {
 			final ViewType viewType = new ViewType(i + 1);
 			final Class<?> clazz = classes[i];
+			
+			methods.clear();
 			
 			for (Class<?> cls = clazz;
 					cls != null && !cls.equals(Object.class);
@@ -87,39 +88,57 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 						
 						final int id = binder.getId(annotation);
 						if (id == 0) continue;
+						
+						MethodDigger md;
 
 						final Class<?>[] paramTypes = method.getParameterTypes();
-						if (paramTypes.length == 0) {
-							// Sync getter
+						if (paramTypes.length > 2) {
+							continue;
+						} else if (paramTypes.length == 2) {
+							// Async getter
 							
-							MethodDigger digger = syncMethods.get(id);
-							if (digger == null) {
-								digger = new MethodDigger(binder);
+							md = methods.get(id);
+							if (md == null) {
+								md = new AsyncMethodDigger(binder);
+							} else if (!(md instanceof AsyncMethodDigger)) {
+								md = new AsyncMethodDigger(md);
 							}
 							
-							digger.setGetter(method);
-						} else if (paramTypes.length == 1) {
-							if (paramTypes[0].isAssignableFrom(AsyncCallback.class)) {
-								// Async getter
+							md.setGetter(method);
+						} else {
+							// Sync getter or setter
+
+							md = methods.get(id);
+							if (md == null) {
+								md = new MethodDigger(binder);
+							} else if (md instanceof AsyncMethodDigger) {
+								md = new MethodDigger(md);
+							}
+							
+							if (paramTypes.length == 1) {
+								// Getter
+								md.setGetter(method);
 							} else {
 								// Setter
+								md.setSetter(method);
 							}
-						} else {
-							break;
 						}
 						
-						final MethodDigger fd = new MethodDigger(method, binder);
-						fd.setId(id);
-						
-						viewType.diggers.add(fd);
+						md.setId(id);
+						methods.put(id, md);
 						
 						break;
 					}
 				}
 			}
 			
+			for (int j = 0, d = methods.size(); j < d; ++j) {
+				final MethodDigger md = methods.get(j);
+				viewType.diggers.add(md);
+			}
+
 			viewType.viewType = i + 1;
-			
+	
 			viewTypeMap.put(clazz, viewType);
 		}
 	}
