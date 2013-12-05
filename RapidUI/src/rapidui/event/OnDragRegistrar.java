@@ -5,11 +5,14 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnDrag;
 import android.view.DragEvent;
 import android.view.View;
 
 public class OnDragRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsOnDrag = new Class<?>[] { View.class, DragEvent.class };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		return ((OnDrag) annotation).value();
@@ -19,13 +22,15 @@ public class OnDragRegistrar extends SimpleEventRegistrar {
 	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 
-		final Method method = methods.get(OnDrag.class);
+		final Method onDrag = methods.get(OnDrag.class);
+		final ArgumentMapper amDrag = new ArgumentMapper(argsOnDrag, onDrag);
+		
 		return new View.OnDragListener() {
 			@Override
 			public boolean onDrag(View v, DragEvent event) {
 				try {
-					method.setAccessible(true);
-					return (Boolean) method.invoke(instance, v, event);
+					onDrag.setAccessible(true);
+					return (Boolean) onDrag.invoke(instance, amDrag.match(v, event));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

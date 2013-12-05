@@ -15,13 +15,9 @@ import android.location.LocationManager;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.text.Editable;
-import android.view.MenuItem;
-import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -36,7 +32,7 @@ public class TestActivity extends RapidActivity {
 	
 	boolean customHandlerInvoked;
 	boolean customHandler1Invoked;
-	boolean customHandler2Invoked;
+	String customHandler2Argument;
 	boolean customHandler3Invoked;
 	
 	int listItemClicked;
@@ -80,23 +76,23 @@ public class TestActivity extends RapidActivity {
 	}
 
 	@EventHandler
-	boolean actionSettings_MenuItemClick(MenuItem item) {
+	boolean actionSettings_MenuItemClick() {
 		settingsMenuClicked = true;
 		return true;
 	}
 	
 	@EventHandler
-	void button1_Click(View v) {
+	void button1_Click() {
 		button1Clicked = true;
 	}
 	
 	@OnClick(R.id.button2)
-	void dontCareAboutMethodName(View v) {
+	void dontCareAboutMethodName() {
 		button2Clicked = true;
 	}
 	
 	@EventHandler
-	void checkbox1_CheckedChange(CompoundButton buttonView, boolean isChecked) {
+	void checkbox1_CheckedChange(boolean isChecked) {
 		checkbox1checked = isChecked;
 	}
 	
@@ -111,22 +107,22 @@ public class TestActivity extends RapidActivity {
 	}
 	
 	@EventHandler
-	void customView_Test2_Test2() {
-		customHandler2Invoked = true;
+	void customView_Test2_Test2(String b) {
+		customHandler2Argument = b;
 	}
 
-	@EventHandler
-	void editText_AfterTextChanged(Editable s) {
-		editTextContent = s.toString();
-	}
-	
 	@EventHandler
 	void customView_Test3() {
 		customHandler3Invoked = true;
 	}
 	
 	@EventHandler
-	void listView_ItemClick(AdapterView<?> parent, View v, int position, long id) {
+	void editText_AfterTextChanged(Editable s) {
+		editTextContent = s.toString();
+	}
+
+	@EventHandler
+	void listView_ItemClick(int position) {
 		listItemClicked = position;
 	}
 }

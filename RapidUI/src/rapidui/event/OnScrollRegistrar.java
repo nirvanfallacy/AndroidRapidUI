@@ -5,12 +5,17 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnScroll;
 import rapidui.annotation.event.OnScrollStateChanged;
 import android.widget.AbsListView;
 import android.widget.NumberPicker;
 
 public class OnScrollRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsScroll_AbsListView = new Class<?>[] { AbsListView.class, Integer.TYPE, Integer.TYPE, Integer.TYPE };
+	private static Class<?>[] argsScrollStateChanged_AbsListView = new Class<?>[] { AbsListView.class, Integer.TYPE };
+	private static Class<?>[] argsScrollStateChanged_NumberPicker = new Class<?>[] { NumberPicker.class, Integer.TYPE };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		if (annotation instanceof OnScroll) {
@@ -30,6 +35,9 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 			final Method onScroll = methods.get(OnScroll.class);
 			final Method onScrollStateChanged = methods.get(OnScrollStateChanged.class);
 			
+			final ArgumentMapper amScroll = new ArgumentMapper(argsScroll_AbsListView, onScroll);
+			final ArgumentMapper amScrollStateChanged = new ArgumentMapper(argsScrollStateChanged_AbsListView, onScrollStateChanged);
+			
 			return new AbsListView.OnScrollListener() {
 				@Override
 				public void onScrollStateChanged(AbsListView view, int scrollState) {
@@ -37,7 +45,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 					
 					try {
 						onScrollStateChanged.setAccessible(true);
-						onScrollStateChanged.invoke(instance, view, scrollState);
+						onScrollStateChanged.invoke(instance, amScrollStateChanged.match(view, scrollState));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {
@@ -55,7 +63,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 					
 					try {
 						onScroll.setAccessible(true);
-						onScroll.invoke(instance, view, firstVisibleItem, visibleItemCount, totalItemCount);
+						onScroll.invoke(instance, amScroll.match(view, firstVisibleItem, visibleItemCount, totalItemCount));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {
@@ -67,6 +75,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 			};
 		} else if (instance instanceof NumberPicker) {
 			final Method onScrollStateChanged = methods.get(OnScrollStateChanged.class);
+			final ArgumentMapper amScrollStateChanged = new ArgumentMapper(argsScrollStateChanged_NumberPicker, onScrollStateChanged);
 			
 			return new NumberPicker.OnScrollListener() {
 				@Override
@@ -75,7 +84,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 					
 					onScrollStateChanged.setAccessible(true);
 					try {
-						onScrollStateChanged.invoke(instance, view, scrollState);
+						onScrollStateChanged.invoke(instance, amScrollStateChanged.match(view, scrollState));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {

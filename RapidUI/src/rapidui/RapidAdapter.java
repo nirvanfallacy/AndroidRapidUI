@@ -178,7 +178,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 			final View v = (View) convertView.getTag(digger.getId());
 			if (v == null) continue;
 			
-			digger.dig(item, v, null);
+//			digger.dig(item, v, null);
 		}
 		
 		return convertView;

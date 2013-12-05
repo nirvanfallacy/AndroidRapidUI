@@ -18,7 +18,9 @@ import android.view.Window;
 import android.view.WindowManager;
 
 public class ActivityHostExtension extends HostExtension {
-	private SparseArray<Method> menuItemClickHandlers;
+	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
+	
+	private SparseArray<EventHandlerInfo> menuItemClickHandlers;
 	
 	public ActivityHostExtension(Activity activity) {
 		super(activity, activity, new ActivityViewFinder(activity));
@@ -111,9 +113,12 @@ public class ActivityHostExtension extends HostExtension {
 			if (id == null) break;
 
 			if (menuItemClickHandlers == null) {
-				menuItemClickHandlers = new SparseArray<Method>();
+				menuItemClickHandlers = new SparseArray<EventHandlerInfo>();
 			}
-			menuItemClickHandlers.put((Integer) id, method);
+			
+			final ArgumentMapper argMatcher = new ArgumentMapper(argsMenuItemClick, method);
+			menuItemClickHandlers.put((Integer) id,
+					new EventHandlerInfo(method, argMatcher));
 			
 			break;
 			
@@ -123,18 +128,18 @@ public class ActivityHostExtension extends HostExtension {
 		}
 	}
 	
-	private Method getMenuItemClickHandler(int id) {
+	private EventHandlerInfo getMenuItemClickHandler(int id) {
 		return (menuItemClickHandlers == null ? null : menuItemClickHandlers.get(id));
 	}
 	
 	public boolean onOptionsItemSelected(MenuItem item) {
 		final int id = item.getItemId();
 		if (id != 0) {
-			final Method method = getMenuItemClickHandler(id);
-			if (method != null) {
+			final EventHandlerInfo info = getMenuItemClickHandler(id);
+			if (info != null) {
 				try {
-					method.setAccessible(true);
-					return (Boolean) method.invoke(memberContainer, item);
+					info.method.setAccessible(true);
+					return (Boolean) info.method.invoke(memberContainer, info.argMatcher.match(item));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

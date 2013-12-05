@@ -5,6 +5,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
+
 public class CustomEventInfo {
 	private Method adder;
 	private Class<?> listenerType;
@@ -23,6 +25,8 @@ public class CustomEventInfo {
 	}
 	
 	public Object createProxy(final Object memberContainer, final HashMap<String, Method> delegates) {
+		final HashMap<Method, ArgumentMapper> argMatchers = new HashMap<Method, ArgumentMapper>();
+		
 		final InvocationHandler invocationHandler = new InvocationHandler() {
 			@Override
 			public Object invoke(Object proxy, Method method, Object[] args)
@@ -38,9 +42,16 @@ public class CustomEventInfo {
 				}
 				
 				final Method delegate = delegates.get(eventName);
+
+				ArgumentMapper am = argMatchers.get(method);
+				if (am == null) {
+					am = new ArgumentMapper(method.getParameterTypes(), delegate);
+					argMatchers.put(method, am);
+				}
+				
 				if (delegate != null) {
 					delegate.setAccessible(true);
-					return delegate.invoke(memberContainer, args);
+					return delegate.invoke(memberContainer, am.match(args));
 				} else {
 					return method.invoke(proxy, args);
 				}

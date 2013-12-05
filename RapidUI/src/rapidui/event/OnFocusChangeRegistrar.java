@@ -5,10 +5,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnFocusChange;
 import android.view.View;
 
 public class OnFocusChangeRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsFocusChange = new Class<?>[] { View.class, Boolean.TYPE };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		return ((OnFocusChange) annotation).value();
@@ -18,14 +21,15 @@ public class OnFocusChangeRegistrar extends SimpleEventRegistrar {
 	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 		
-		final Method method = methods.get(OnFocusChange.class);
+		final Method onFocus = methods.get(OnFocusChange.class);
+		final ArgumentMapper amFocus = new ArgumentMapper(argsFocusChange, onFocus);
 		
 		return new View.OnFocusChangeListener() {
 			@Override
 			public void onFocusChange(View v, boolean hasFocus) {
 				try {
-					method.setAccessible(true);
-					method.invoke(instance, v, hasFocus);
+					onFocus.setAccessible(true);
+					onFocus.invoke(instance, v, amFocus.match(hasFocus));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

@@ -133,6 +133,9 @@ import android.view.textservice.TextServicesManager;
 import android.widget.TextView;
 
 public abstract class HostExtension {
+	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
+	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
+	
 	private static class AutoEventName {
 		public String target;
 		public String event;
@@ -403,6 +406,8 @@ public abstract class HostExtension {
 	private static class ServiceCallback {
 		public Method onConnect;
 		public Method onDisconnect;
+		public ArgumentMapper amConnect;
+		public ArgumentMapper amDisconnect;
 	}
 	
 	public static final int HOST_EVENT_MENU_ITEM_CLICK = 0;
@@ -792,7 +797,7 @@ public abstract class HostExtension {
 						if (callback != null && callback.onConnect != null) {
 							try {
 								callback.onConnect.setAccessible(true);
-								callback.onConnect.invoke(memberContainer, alias);
+								callback.onConnect.invoke(memberContainer, callback.amConnect.match(alias));
 							} catch (InvocationTargetException e) {
 								e.printStackTrace();
 							} catch (IllegalAccessException e) {
@@ -816,7 +821,7 @@ public abstract class HostExtension {
 					if (callback != null && callback.onDisconnect != null) {
 						try {
 							callback.onDisconnect.setAccessible(true);
-							callback.onDisconnect.invoke(memberContainer, alias);
+							callback.onDisconnect.invoke(memberContainer, callback.amDisconnect.match(alias));
 						} catch (IllegalAccessException e1) {
 							e1.printStackTrace();
 						} catch (IllegalArgumentException e1) {
@@ -1052,15 +1057,17 @@ public abstract class HostExtension {
 		}
 		
 		final String[] extraKeys = receiver.extra();
+		final ArgumentMapper am = new ArgumentMapper(argsReceiver, method);
+
 		final BroadcastReceiver broadcastReceiver;
 		
-		if (extraKeys.length == 0) {
+		if (extraKeys.length == 0 || am.isIdentical()) {
 			broadcastReceiver = new BroadcastReceiver() {
 				@Override
 				public void onReceive(Context context, Intent intent) {
 					try {
 						method.setAccessible(true);
-						method.invoke(memberContainer, intent);
+						method.invoke(memberContainer, am.match(context, intent));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {
@@ -1075,12 +1082,14 @@ public abstract class HostExtension {
 				@Override
 				public void onReceive(Context context, Intent intent) {
 					final Bundle extras = (intent == null ? null : intent.getExtras());
+
+					final Object[] args = new Object[am.size()];
+					am.fillMatchedResult(args, 0, context, intent);
 					
-					final Object[] args = new Object[1 + extraKeys.length];
-					args[0] = intent;
-					
+					int j = 0;
 					for (int i = 0; i < extraKeys.length; ++i) {
-						args[i + 1] = extras.get(extraKeys[i]);
+						for (; am.isMapped(j); ++j);
+						args[j++] = extras.get(extraKeys[i]);
 					}
 					
 					try {
@@ -1310,8 +1319,10 @@ public abstract class HostExtension {
 			
 			if (type == HOST_EVENT_SERVICE_CONNECT) {
 				callback.onConnect = method;
+				callback.amConnect = new ArgumentMapper(argsServiceConnect, method);
 			} else {
 				callback.onDisconnect = method;
+				callback.amDisconnect = new ArgumentMapper(argsServiceConnect, method);
 			}
 			
 			break;

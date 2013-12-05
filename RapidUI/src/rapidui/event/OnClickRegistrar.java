@@ -5,10 +5,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnClick;
 import android.view.View;
 
 public class OnClickRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsClick = new Class<?>[] { View.class };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		return ((OnClick) annotation).value();
@@ -18,14 +21,15 @@ public class OnClickRegistrar extends SimpleEventRegistrar {
 	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 		
-		final Method onClickMethod = methods.get(OnClick.class);
+		final Method onClick = methods.get(OnClick.class);
+		final ArgumentMapper amClick = new ArgumentMapper(argsClick, onClick);
 		
 		return new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				try {
-					onClickMethod.setAccessible(true);
-					onClickMethod.invoke(instance, v);
+					onClick.setAccessible(true);
+					onClick.invoke(instance, amClick.match(v));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

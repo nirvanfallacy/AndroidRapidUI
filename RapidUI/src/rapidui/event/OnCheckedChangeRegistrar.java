@@ -5,10 +5,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnCheckedChange;
 import android.widget.CompoundButton;
 
 public class OnCheckedChangeRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsCheckedChange = new Class<?>[] { CompoundButton.class, Boolean.TYPE };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		return ((OnCheckedChange) annotation).value();
@@ -18,14 +21,15 @@ public class OnCheckedChangeRegistrar extends SimpleEventRegistrar {
 	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 		
-		final Method method = methods.get(OnCheckedChange.class);
+		final Method onCheckedChange = methods.get(OnCheckedChange.class);
+		final ArgumentMapper amCheckedChange = new ArgumentMapper(argsCheckedChange, onCheckedChange);
 		
 		return new CompoundButton.OnCheckedChangeListener() {
 			@Override
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 				try {
-					method.setAccessible(true);
-					method.invoke(instance, buttonView, isChecked);
+					onCheckedChange.setAccessible(true);
+					onCheckedChange.invoke(instance, amCheckedChange.match(buttonView, isChecked));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

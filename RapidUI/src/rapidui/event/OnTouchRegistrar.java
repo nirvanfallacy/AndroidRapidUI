@@ -5,11 +5,14 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnTouch;
 import android.view.MotionEvent;
 import android.view.View;
 
 public class OnTouchRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsTouch = new Class<?>[] { View.class, MotionEvent.class };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		return ((OnTouch) annotation).value();
@@ -19,14 +22,15 @@ public class OnTouchRegistrar extends SimpleEventRegistrar {
 	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 
-		final Method method = methods.get(OnTouch.class);
+		final Method onTouch = methods.get(OnTouch.class);
+		final ArgumentMapper amTouch = new ArgumentMapper(argsTouch, onTouch);
 		
 		return new View.OnTouchListener() {
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
 				try {
-					method.setAccessible(true);
-					return (Boolean) method.invoke(instance, v, event);
+					onTouch.setAccessible(true);
+					return (Boolean) onTouch.invoke(instance, amTouch.match(v, event));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

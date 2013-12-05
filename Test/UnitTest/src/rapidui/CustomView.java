@@ -12,7 +12,7 @@ public class CustomView extends View {
 
 	public interface OnTest2Listener {
 		void onTest1();
-		void onTest2();
+		void onTest2(int a, String b);
 	}
 	
 	private OnTestListener onTest;
@@ -43,9 +43,9 @@ public class CustomView extends View {
 		}
 	}
 	
-	public void test2() {
+	public void test2(int a, String b) {
 		if (onTest2 != null) {
-			onTest2.onTest2();
+			onTest2.onTest2(a, b);
 		}
 	}
 	

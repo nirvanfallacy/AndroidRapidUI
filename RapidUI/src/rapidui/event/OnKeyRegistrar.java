@@ -5,11 +5,14 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnKey;
 import android.view.KeyEvent;
 import android.view.View;
 
 public class OnKeyRegistrar extends SimpleEventRegistrar {
+	private static Class<?>[] argsKey = new Class<?>[] { View.class, Integer.TYPE, KeyEvent.class };
+	
 	@Override
 	public int[] getTargetIds(Annotation annotation) {
 		return ((OnKey) annotation).value();
@@ -19,13 +22,15 @@ public class OnKeyRegistrar extends SimpleEventRegistrar {
 	public Object createEventDispatcher(Object target, final Object instance,
 			HashMap<Class<?>, Method> methods) {
 
-		final Method method = methods.get(OnKey.class);
+		final Method onKey = methods.get(OnKey.class);
+		final ArgumentMapper amKey = new ArgumentMapper(argsKey, onKey);
+		
 		return new View.OnKeyListener() {
 			@Override
 			public boolean onKey(View v, int keyCode, KeyEvent event) {
 				try {
-					method.setAccessible(true);
-					return (Boolean) method.invoke(instance, v, keyCode, event);
+					onKey.setAccessible(true);
+					return (Boolean) onKey.invoke(instance, amKey.match(v, keyCode, event));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

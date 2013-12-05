@@ -84,9 +84,9 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 		activity.customView.test1();
 		assertTrue(activity.customHandler1Invoked);
 		
-		activity.customHandler2Invoked = false;
-		activity.customView.test2();
-		assertTrue(activity.customHandler2Invoked);
+		activity.customHandler2Argument = null;
+		activity.customView.test2(2, "asdf");
+		assertTrue("asdf".equals(activity.customHandler2Argument));
 		
 		activity.customHandler3Invoked = false;
 		activity.customView.test3();

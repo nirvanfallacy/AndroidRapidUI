@@ -31,7 +31,7 @@ public class ReceiverTestActivity extends RapidActivity {
 	
 	@Receiver(action=ACTION_BROADCAST_TEST,
 			  extra={"operator", "a", "b"})
-	void receiver(Intent intent, String op, int a, int b) {
+	void receiver(String op, int a, int b) {
 		int result;
 		if (op.equals("+")) {
 			result = a + b;
