@@ -1332,7 +1332,6 @@ public abstract class HostExtension {
 			
 			final ViewTreeObserver observer = activity.getWindow().getDecorView().getViewTreeObserver();
 			observer.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-				@SuppressWarnings("deprecation")
 				@Override
 				public void onGlobalLayout() {
 					if (once) {

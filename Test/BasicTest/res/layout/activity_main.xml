@@ -41,6 +41,21 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/font_test" />
+
+        <Button android:id="@+id/button_adapter_field_binding_test"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/adapter_test_field_binding" />
+
+        <Button android:id="@+id/button_adapter_method_binding_test"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/adapter_test_method_binding" />
+
+        <Button android:id="@+id/button_adapter_async_method_binding_test"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/adapter_test_async_method_binding" />
         
     </LinearLayout>
 

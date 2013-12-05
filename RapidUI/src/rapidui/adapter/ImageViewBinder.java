@@ -9,7 +9,7 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.widget.ImageView;
 
-public class ImageBinder extends ViewBinder {
+public class ImageViewBinder extends ViewBinder {
 	@Override
 	public int getId(Annotation annotation) {
 		return ((BindToImage) annotation).value();
@@ -17,10 +17,10 @@ public class ImageBinder extends ViewBinder {
 
 	@Override
 	public void bindValue(View v, Object value) {
-		if (value instanceof Bitmap) {
-			((ImageView) v).setImageBitmap((Bitmap) value);
-		} else if (value instanceof Drawable) {
+		if (value == null || value instanceof Drawable) {
 			((ImageView) v).setImageDrawable((Drawable) value);
+		} else if (value instanceof Bitmap) {
+			((ImageView) v).setImageBitmap((Bitmap) value);
 		}
 	}
 

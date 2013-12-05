@@ -1,5 +1,5 @@
 package rapidui;
 
-public interface Canceler {
+public interface Cancelable {
 	boolean isCanceled();
 }

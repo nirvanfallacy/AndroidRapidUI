@@ -47,6 +47,21 @@
             android:name="rapidui.test.basictest.font.FontTestActivity"
             android:label="@string/font_test_activity"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name="rapidui.test.basictest.adapter.FieldBindingActivity"
+            android:label="@string/adapter_test_field_binding"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name="rapidui.test.basictest.adapter.MethodBindingActivity"
+            android:label="@string/adapter_test_method_binding"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name="rapidui.test.basictest.adapter.AsyncMethodBindingActivity"
+            android:label="@string/adapter_test_method_binding"
+            android:screenOrientation="portrait" />
         
     </application>
 

@@ -5,15 +5,21 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.WeakHashMap;
 
-import rapidui.adapter.AsyncMethodDigger;
-import rapidui.adapter.DataDigger;
-import rapidui.adapter.FieldDigger;
-import rapidui.adapter.ImageBinder;
-import rapidui.adapter.MethodDigger;
-import rapidui.adapter.TextBinder;
+import rapidui.adapter.AsyncMethodDataBinder;
+import rapidui.adapter.CheckViewBinder;
+import rapidui.adapter.DataBinder;
+import rapidui.adapter.EnabledViewBinder;
+import rapidui.adapter.FieldDataBinder;
+import rapidui.adapter.ImageViewBinder;
+import rapidui.adapter.MethodDataBinder;
+import rapidui.adapter.TextViewBinder;
 import rapidui.adapter.ViewBinder;
 import rapidui.annotation.AdapterItem;
+import rapidui.annotation.adapter.BindToCheck;
+import rapidui.annotation.adapter.BindToEnabled;
 import rapidui.annotation.adapter.BindToImage;
 import rapidui.annotation.adapter.BindToText;
 import android.content.Context;
@@ -24,128 +30,83 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 
 public class RapidAdapter extends ArrayAdapter<Object> {
-	private static HashMap<Class<?>, ViewBinder> binders;
-	
-	private static void ensureBinders() {
-		if (binders != null) return;
+	private class AsyncJob implements Cancelable, Runnable {
+		private View v;
+		private boolean canceled;
 		
-		binders = new HashMap<Class<?>, ViewBinder>();
+		public AsyncJob(View v) {
+			this.v = v;
+		}
 		
-		binders.put(BindToText.class, new TextBinder());
-		binders.put(BindToImage.class, new ImageBinder());
-	}
-	
-	private LayoutInflater inflater;
-	private HashMap<Class<?>, ViewType> viewTypeMap;
-	
-	public RapidAdapter(Context context, Class<?>... classes) {
-		super(context, 0);
-		
-		inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-		
-		ensureBinders();
-		viewTypeMap = new HashMap<Class<?>, ViewType>();
-		
-		final SparseArray<MethodDigger> methods = new SparseArray<MethodDigger>();
-		
-		for (int i = 0, c = classes.length; i < c; ++i) {
-			final ViewType viewType = new ViewType(i + 1);
-			final Class<?> clazz = classes[i];
-			
-			methods.clear();
-			
-			for (Class<?> cls = clazz;
-					cls != null && !cls.equals(Object.class);
-					cls = cls.getSuperclass()) {
-				
-				if (viewType.layoutId == 0) {
-					final AdapterItem ai = cls.getAnnotation(AdapterItem.class);
-					if (ai != null) {
-						viewType.layoutId = ai.value();
-					}
-				}
-				
-				for (Field field: cls.getDeclaredFields()) {
-					for (Annotation annotation: field.getAnnotations()) {
-						final ViewBinder binder = binders.get(annotation.annotationType());
-						if (binder != null) {
-							final int id = binder.getId(annotation);
-							if (id == 0) continue;
-							
-							final FieldDigger fd = new FieldDigger(field, binder);
-							fd.setId(id);
-							
-							viewType.diggers.add(fd);
-							break;
-						}
-					}
-				}
-				
-				for (Method method: cls.getDeclaredMethods()) {
-					for (Annotation annotation: method.getAnnotations()) {
-						final ViewBinder binder = binders.get(annotation.annotationType());
-						if (binder == null) continue;
-						
-						final int id = binder.getId(annotation);
-						if (id == 0) continue;
-						
-						MethodDigger md;
-
-						final Class<?>[] paramTypes = method.getParameterTypes();
-						if (paramTypes.length > 2) {
-							continue;
-						} else if (paramTypes.length == 2) {
-							// Async getter
-							
-							md = methods.get(id);
-							if (md == null) {
-								md = new AsyncMethodDigger(binder);
-							} else if (!(md instanceof AsyncMethodDigger)) {
-								md = new AsyncMethodDigger(md);
-							}
-							
-							md.setGetter(method);
-						} else {
-							// Sync getter or setter
-
-							md = methods.get(id);
-							if (md == null) {
-								md = new MethodDigger(binder);
-							} else if (md instanceof AsyncMethodDigger) {
-								md = new MethodDigger(md);
-							}
-							
-							if (paramTypes.length == 1) {
-								// Getter
-								md.setGetter(method);
-							} else {
-								// Setter
-								md.setSetter(method);
-							}
-						}
-						
-						md.setId(id);
-						methods.put(id, md);
-						
-						break;
-					}
-				}
+		public void cancel() {
+			synchronized (this) {
+				canceled = true;
 			}
-			
-			for (int j = 0, d = methods.size(); j < d; ++j) {
-				final MethodDigger md = methods.get(j);
-				viewType.diggers.add(md);
+			synchronized (asyncJobs) {
+				asyncJobs.remove(v);
 			}
+		}
 
-			viewType.viewType = i + 1;
-	
-			viewTypeMap.put(clazz, viewType);
+		@Override
+		public boolean isCanceled() {
+			synchronized (this) {
+				if (canceled) return true;
+			}
+			synchronized (asyncJobs) {
+				return !asyncJobs.containsKey(v);
+			}
+		}
+
+		@Override
+		public void run() {
+			synchronized (asyncJobs) {
+				asyncJobs.remove(v);
+			}
 		}
 	}
 	
-	@Override
-	public int getViewTypeCount() {
-		return viewTypeMap.size();
+	private static class ViewType {
+		public int viewType;
+		public int layoutId;
+		public LinkedList<DataBinder> dataBinders;
+		
+		public ViewType(int viewType) {
+			this.viewType = viewType;
+			this.dataBinders = new LinkedList<DataBinder>();
+		}
+	}
+	
+	private static HashMap<Class<?>, ViewBinder> viewBinders;
+	private static void ensureViewBinders() {
+		if (viewBinders != null) return;
+		
+		viewBinders = new HashMap<Class<?>, ViewBinder>();
+		
+		viewBinders.put(BindToText.class, new TextViewBinder());
+		viewBinders.put(BindToImage.class, new ImageViewBinder());
+		viewBinders.put(BindToCheck.class, new CheckViewBinder());
+	}
+
+	private LayoutInflater inflater;
+
+	private HashMap<Class<?>, ViewType> viewTypeMap;
+	
+	private WeakHashMap<View, AsyncJob> asyncJobs;
+	
+	public RapidAdapter(Context context, Class<?>... classes) {
+		super(context, 0);
+		init(classes);
+	}
+	
+	public RapidAdapter(Context context, List<Object> list, Class<?>... classes) {
+		super(context, 0, list);
+		init(classes);
+	}
+	
+	private AsyncJob getAsyncJob(View v) {
+		synchronized (asyncJobs) {
+			return asyncJobs.get(v);
+		}
 	}
 	
 	@Override
@@ -168,30 +129,164 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		if (convertView == null) {
 			convertView = inflater.inflate(viewType.layoutId, parent, false);
 			
-			for (DataDigger digger: viewType.diggers) {
-				final int id = digger.getId();
+			for (DataBinder dataBinder: viewType.dataBinders) {
+				final int id = dataBinder.getId();
+				if (id == 0) continue;
+				
 				convertView.setTag(id, convertView.findViewById(id));
 			}
 		}
 		
-		for (DataDigger digger: viewType.diggers) {
-			final View v = (View) convertView.getTag(digger.getId());
-			if (v == null) continue;
+		for (DataBinder dataBinder: viewType.dataBinders) {
+			final View v;
 			
-//			digger.dig(item, v, null);
+			final int id = dataBinder.getId();
+			if (id == 0) {
+				v = convertView;
+			} else {
+				v = (View) convertView.getTag(id);
+				if (v == null) continue;
+			}
+
+			AsyncJob asyncJob = getAsyncJob(v);
+			if (asyncJob != null) {
+				asyncJob.cancel();
+			}
+			
+			if (dataBinder.isAsync()) {
+				asyncJob = new AsyncJob(v);
+				putAsyncJob(v, asyncJob);
+			} else {
+				asyncJob = null;
+			}
+			
+			dataBinder.unbind(v);
+			dataBinder.bind(item, v, asyncJob, asyncJob);
 		}
 		
 		return convertView;
 	}
 	
-	private static class ViewType {
-		public int viewType;
-		public int layoutId;
-		public LinkedList<DataDigger> diggers;
+	@Override
+	public int getViewTypeCount() {
+		return viewTypeMap.size();
+	}
+	
+	private void init(Class<?>[] classes) {
+		inflater = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 		
-		public ViewType(int viewType) {
-			this.viewType = viewType;
-			this.diggers = new LinkedList<DataDigger>();
+		ensureViewBinders();
+		viewTypeMap = new HashMap<Class<?>, ViewType>();
+		
+		final SparseArray<MethodDataBinder> methods = new SparseArray<MethodDataBinder>();
+		
+		for (int i = 0, c = classes.length; i < c; ++i) {
+			final ViewType viewType = new ViewType(i + 1);
+			final Class<?> clazz = classes[i];
+			
+			methods.clear();
+			
+			for (Class<?> cls = clazz;
+					cls != null && !cls.equals(Object.class);
+					cls = cls.getSuperclass()) {
+				
+				if (viewType.layoutId == 0) {
+					final AdapterItem ai = cls.getAnnotation(AdapterItem.class);
+					if (ai != null) {
+						viewType.layoutId = ai.value();
+					}
+				}
+				
+				for (Field field: cls.getDeclaredFields()) {
+					for (Annotation annotation: field.getAnnotations()) {
+						final ViewBinder binder = viewBinders.get(annotation.annotationType());
+						if (binder != null) {
+							final int id = binder.getId(annotation);
+							if (id == 0) continue;
+							
+							final FieldDataBinder fd = new FieldDataBinder(field, binder);
+							fd.setId(id);
+							
+							viewType.dataBinders.add(fd);
+							break;
+						}
+					}
+				}
+				
+				for (Method method: cls.getDeclaredMethods()) {
+					for (Annotation annotation: method.getAnnotations()) {
+						final ViewBinder binder = viewBinders.get(annotation.annotationType());
+						if (binder == null) continue;
+						
+						final int id = binder.getId(annotation);
+						if (id == 0) continue;
+						
+						MethodDataBinder md;
+
+						final Class<?>[] paramTypes = method.getParameterTypes();
+						if (paramTypes.length > 2) {
+							continue;
+						} else if (paramTypes.length == 2) {
+							// Async getter
+							
+							md = methods.get(id);
+							if (md == null) {
+								md = new AsyncMethodDataBinder(binder);
+							} else if (!(md instanceof AsyncMethodDataBinder)) {
+								md = new AsyncMethodDataBinder(md);
+							}
+							
+							md.setGetter(method);
+							
+							if (asyncJobs == null) {
+								asyncJobs = new WeakHashMap<View, RapidAdapter.AsyncJob>();
+							}
+						} else {
+							// Sync getter or setter
+
+							md = methods.get(id);
+							if (md == null) {
+								md = new MethodDataBinder(binder);
+							} else if (md instanceof AsyncMethodDataBinder) {
+								md = new MethodDataBinder(md);
+							}
+							
+							if (paramTypes.length == 1) {
+								// Setter
+								md.setSetter(method);
+							} else {
+								// Getter
+								md.setGetter(method);
+							}
+						}
+						
+						md.setId(id);
+						methods.put(id, md);
+						
+						break;
+					}
+				}
+			}
+			
+			for (int j = 0, d = methods.size(); j < d; ++j) {
+				final MethodDataBinder md = methods.valueAt(j);
+				viewType.dataBinders.add(md);
+			}
+
+			viewType.viewType = i + 1;
+	
+			viewTypeMap.put(clazz, viewType);
 		}
+	}
+	
+	private void putAsyncJob(View v, AsyncJob job) {
+		synchronized (asyncJobs) {
+			asyncJobs.put(v, job);
+		}
+	}
+	
+	@Override
+	public boolean isEnabled(int position) {
+		return true;
 	}
 }
