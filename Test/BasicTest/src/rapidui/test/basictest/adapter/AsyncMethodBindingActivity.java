@@ -19,8 +19,8 @@ public class AsyncMethodBindingActivity extends RapidListActivity {
 		
 		final List<Object> items = new ArrayList<Object>();
 		
-		items.add(new ListItem3(this, "astro boy", imageId));
-		items.add(new ListItem3(this, "bender", imageId));
+		items.add(new ListItem3(this, "astro boy", imageId).disable());
+		items.add(new ListItem3(this, "bender", imageId).disable());
 		items.add(new ListItem3(this, "cupcake", imageId));
 		items.add(new ListItem3(this, "donut", imageId));
 		items.add(new ListItem3(this, "eclair", imageId));

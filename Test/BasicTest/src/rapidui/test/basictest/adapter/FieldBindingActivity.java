@@ -17,8 +17,8 @@ public class FieldBindingActivity extends RapidListActivity {
 		
 		final List<Object> items = new ArrayList<Object>();
 		
-		items.add(new ListItem("astro boy", false).disable());
-		items.add(new ListItem("bender", false).disable());
+		items.add(new ListItem("astro boy", false));
+		items.add(new ListItem("bender", false));
 		items.add(new ListItem("cupcake", false));
 		items.add(new ListItem("donut", false));
 		items.add(new ListItem("eclair", false));

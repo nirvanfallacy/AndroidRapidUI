@@ -32,17 +32,12 @@ public class MethodDataBinder extends DataBinder {
 	@Override
 	public void bind(final Object instance, View v, Runnable callback, Cancelable canceler) {
 		// Bind value
-		
-		getter.setAccessible(true);
+
 		try {
-			final Object value = getter.invoke(instance);
-			viewBinder.bindValue(v, value);
-		} catch (IllegalAccessException e) {
+			viewBinder.bindValue(v, getValue(instance));
+		} catch (Exception e) {
 			e.printStackTrace();
-		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
-		} catch (InvocationTargetException e) {
-			e.printStackTrace();
+			return;
 		}
 		
 		// Bind listener
@@ -71,8 +66,8 @@ public class MethodDataBinder extends DataBinder {
 	}
 
 	@Override
-	public Object getValue(Object instance) {
-		// TODO Auto-generated method stub
-		return null;
+	public Object getValue(Object instance) throws Exception {
+		getter.setAccessible(true);
+		return getter.invoke(instance);
 	}
 }

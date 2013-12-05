@@ -16,14 +16,11 @@ public class FieldDataBinder extends DataBinder {
 
 	@Override
 	public void bind(final Object instance, final View v, final Runnable callback, final Cancelable canceler) {
-		field.setAccessible(true);
 		try {
-			final Object value = field.get(instance);
-			viewBinder.bindValue(v, value);
-		} catch (IllegalAccessException e) {
+			viewBinder.bindValue(v, getValue(instance));
+		} catch (Exception e) {
 			e.printStackTrace();
-		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
+			return;
 		}
 		
 		// Bind listener
@@ -44,7 +41,8 @@ public class FieldDataBinder extends DataBinder {
 	}
 
 	@Override
-	public Object getValue(Object instance) {
-		return null;
+	public Object getValue(Object instance) throws Exception {
+		field.setAccessible(true);
+		return field.get(instance);
 	}
 }

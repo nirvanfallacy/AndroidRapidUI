@@ -3,6 +3,7 @@ package rapidui.test.basictest.adapter;
 import rapidui.Cancelable;
 import rapidui.adapter.AsyncDataBinderCallback;
 import rapidui.annotation.AdapterItem;
+import rapidui.annotation.adapter.BindToEnabled;
 import rapidui.annotation.adapter.BindToImage;
 import rapidui.annotation.adapter.BindToText;
 import rapidui.test.basictest.R;
@@ -17,10 +18,14 @@ public class ListItem3 {
 	private String text;
 	private int imageId;
 
+	@BindToEnabled
+	private boolean enabled;
+	
 	public ListItem3(Context context, String text, int imageId) {
 		this.context = context;
 		this.text = text;
 		this.imageId = imageId;
+		this.enabled = true;
 	}
 
 	@BindToText(R.id.textview)
@@ -46,5 +51,10 @@ public class ListItem3 {
 				return null;
 			}
 		}.execute();
+	}
+
+	public ListItem3 disable() {
+		enabled = false;
+		return this;
 	}
 }

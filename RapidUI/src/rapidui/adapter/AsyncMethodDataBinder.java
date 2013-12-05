@@ -71,4 +71,9 @@ public class AsyncMethodDataBinder extends MethodDataBinder {
 	public boolean isAsync() {
 		return true;
 	}
+	
+	@Override
+	public Object getValue(Object instance) throws Exception {
+		return null;
+	}
 }

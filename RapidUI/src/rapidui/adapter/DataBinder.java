@@ -17,7 +17,7 @@ public abstract class DataBinder {
 	}
 	
 	public abstract void bind(Object instance, View v, Runnable callback, Cancelable canceler);
-	public abstract Object getValue(Object instance);
+	public abstract Object getValue(Object instance) throws Exception;
 
 	public void unbind(View v) {
 		unregisterListeners(v);

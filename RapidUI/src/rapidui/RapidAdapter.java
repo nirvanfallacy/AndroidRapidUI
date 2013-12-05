@@ -11,7 +11,6 @@ import java.util.WeakHashMap;
 import rapidui.adapter.AsyncMethodDataBinder;
 import rapidui.adapter.CheckViewBinder;
 import rapidui.adapter.DataBinder;
-import rapidui.adapter.EnabledViewBinder;
 import rapidui.adapter.FieldDataBinder;
 import rapidui.adapter.ImageViewBinder;
 import rapidui.adapter.MethodDataBinder;
@@ -92,6 +91,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 	private HashMap<Class<?>, ViewType> viewTypeMap;
 	
 	private WeakHashMap<View, AsyncJob> asyncJobs;
+	private DataBinder enabledBinder;
 	
 	public RapidAdapter(Context context, Class<?>... classes) {
 		super(context, 0);
@@ -176,7 +176,9 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		inflater = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 		
 		ensureViewBinders();
+		
 		viewTypeMap = new HashMap<Class<?>, ViewType>();
+		asyncJobs = new WeakHashMap<View, RapidAdapter.AsyncJob>();
 		
 		final SparseArray<MethodDataBinder> methods = new SparseArray<MethodDataBinder>();
 		
@@ -199,22 +201,34 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				
 				for (Field field: cls.getDeclaredFields()) {
 					for (Annotation annotation: field.getAnnotations()) {
-						final ViewBinder binder = viewBinders.get(annotation.annotationType());
-						if (binder != null) {
-							final int id = binder.getId(annotation);
-							if (id == 0) continue;
-							
-							final FieldDataBinder fd = new FieldDataBinder(field, binder);
-							fd.setId(id);
-							
-							viewType.dataBinders.add(fd);
-							break;
+						if (annotation instanceof BindToEnabled) {
+							enabledBinder = new FieldDataBinder(field, null);
+							continue;
 						}
+						
+						final ViewBinder binder = viewBinders.get(annotation.annotationType());
+						if (binder == null) continue;
+						
+						final int id = binder.getId(annotation);
+						if (id == 0) continue;
+						
+						final FieldDataBinder fd = new FieldDataBinder(field, binder);
+						fd.setId(id);
+						
+						viewType.dataBinders.add(fd);
 					}
 				}
 				
 				for (Method method: cls.getDeclaredMethods()) {
 					for (Annotation annotation: method.getAnnotations()) {
+						if (annotation instanceof BindToEnabled) {
+							final MethodDataBinder mdb = new MethodDataBinder((ViewBinder) null);
+							mdb.setGetter(method);
+							
+							enabledBinder = mdb;
+							continue;
+						}
+						
 						final ViewBinder binder = viewBinders.get(annotation.annotationType());
 						if (binder == null) continue;
 						
@@ -237,10 +251,6 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							}
 							
 							md.setGetter(method);
-							
-							if (asyncJobs == null) {
-								asyncJobs = new WeakHashMap<View, RapidAdapter.AsyncJob>();
-							}
 						} else {
 							// Sync getter or setter
 
@@ -262,8 +272,6 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 						
 						md.setId(id);
 						methods.put(id, md);
-						
-						break;
 					}
 				}
 			}
@@ -287,6 +295,15 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 	
 	@Override
 	public boolean isEnabled(int position) {
-		return true;
+		if (enabledBinder == null) {
+			return true;
+		} else {
+			try {
+				return (Boolean) enabledBinder.getValue(getItem(position));
+			} catch (Exception e) {
+				e.printStackTrace();
+				return true;
+			}
+		}
 	}
 }
