@@ -17,7 +17,7 @@ public class TextViewBinder extends ViewBinder {
 	}
 
 	@Override
-	public int getId(Annotation annotation) {
+	public int[] getIds(Annotation annotation) {
 		return ((BindToText) annotation).value();
 	}
 

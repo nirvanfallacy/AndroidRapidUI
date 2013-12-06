@@ -11,6 +11,7 @@ import java.util.WeakHashMap;
 import rapidui.adapter.AsyncMethodDataBinder;
 import rapidui.adapter.CheckViewBinder;
 import rapidui.adapter.DataBinder;
+import rapidui.adapter.EnabledViewBinder;
 import rapidui.adapter.FieldDataBinder;
 import rapidui.adapter.ImageViewBinder;
 import rapidui.adapter.MethodDataBinder;
@@ -29,6 +30,8 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 
 public class RapidAdapter extends ArrayAdapter<Object> {
+	public static final int ID_CONTAINER = 0;
+	
 	private class AsyncJob implements Cancelable, Runnable {
 		private View v;
 		private boolean canceled;
@@ -84,6 +87,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		viewBinders.put(BindToText.class, new TextViewBinder());
 		viewBinders.put(BindToImage.class, new ImageViewBinder());
 		viewBinders.put(BindToCheck.class, new CheckViewBinder());
+		viewBinders.put(BindToEnabled.class, new EnabledViewBinder());
 	}
 
 	private LayoutInflater inflater;
@@ -202,76 +206,84 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				for (Field field: cls.getDeclaredFields()) {
 					for (Annotation annotation: field.getAnnotations()) {
 						if (annotation instanceof BindToEnabled) {
-							enabledBinder = new FieldDataBinder(field, null);
-							continue;
+							final int[] ids = ((BindToEnabled) annotation).value();
+							if (ids.length == 0 || hasZeroId(ids)) {
+								enabledBinder = new FieldDataBinder(field, null);
+							}
 						}
 						
 						final ViewBinder binder = viewBinders.get(annotation.annotationType());
 						if (binder == null) continue;
 						
-						final int id = binder.getId(annotation);
-						if (id == 0) continue;
+						final int[] ids = binder.getIds(annotation);
+						if (ids == null) continue;
 						
-						final FieldDataBinder fd = new FieldDataBinder(field, binder);
-						fd.setId(id);
-						
-						viewType.dataBinders.add(fd);
+						for (int id: ids) {
+							final FieldDataBinder fd = new FieldDataBinder(field, binder);
+							fd.setId(id);
+							
+							viewType.dataBinders.add(fd);
+						}
 					}
 				}
 				
 				for (Method method: cls.getDeclaredMethods()) {
 					for (Annotation annotation: method.getAnnotations()) {
 						if (annotation instanceof BindToEnabled) {
-							final MethodDataBinder mdb = new MethodDataBinder((ViewBinder) null);
-							mdb.setGetter(method);
-							
-							enabledBinder = mdb;
-							continue;
+							final int[] ids = ((BindToEnabled) annotation).value();
+							if (ids.length == 0 || hasZeroId(ids)) {
+								final MethodDataBinder mdb = new MethodDataBinder((ViewBinder) null);
+								mdb.setGetter(method);
+								
+								enabledBinder = mdb;
+							}
 						}
 						
 						final ViewBinder binder = viewBinders.get(annotation.annotationType());
 						if (binder == null) continue;
 						
-						final int id = binder.getId(annotation);
-						if (id == 0) continue;
+						final int[] ids = binder.getIds(annotation);
+						if (ids == null) continue;
 						
-						MethodDataBinder md;
-
-						final Class<?>[] paramTypes = method.getParameterTypes();
-						if (paramTypes.length > 2) {
-							continue;
-						} else if (paramTypes.length == 2) {
-							// Async getter
-							
-							md = methods.get(id);
-							if (md == null) {
-								md = new AsyncMethodDataBinder(binder);
-							} else if (!(md instanceof AsyncMethodDataBinder)) {
-								md = new AsyncMethodDataBinder(md);
-							}
-							
-							md.setGetter(method);
-						} else {
-							// Sync getter or setter
-
-							md = methods.get(id);
-							if (md == null) {
-								md = new MethodDataBinder(binder);
-							} else if (md instanceof AsyncMethodDataBinder) {
-								md = new MethodDataBinder(md);
-							}
-							
-							if (paramTypes.length == 1) {
-								// Setter
-								md.setSetter(method);
-							} else {
-								// Getter
+						for (int id: ids) {
+							MethodDataBinder md;
+	
+							final Class<?>[] paramTypes = method.getParameterTypes();
+							if (paramTypes.length > 2) {
+								continue;
+							} else if (paramTypes.length == 2) {
+								// Async getter
+								
+								md = methods.get(id);
+								if (md == null) {
+									md = new AsyncMethodDataBinder(binder);
+								} else if (!(md instanceof AsyncMethodDataBinder)) {
+									md = new AsyncMethodDataBinder(md);
+								}
+								
 								md.setGetter(method);
+							} else {
+								// Sync getter or setter
+	
+								md = methods.get(id);
+								if (md == null) {
+									md = new MethodDataBinder(binder);
+								} else if (md instanceof AsyncMethodDataBinder) {
+									md = new MethodDataBinder(md);
+								}
+								
+								if (paramTypes.length == 1) {
+									// Setter
+									md.setSetter(method);
+								} else {
+									// Getter
+									md.setGetter(method);
+								}
 							}
+							
+							md.setId(id);
+							methods.put(id, md);
 						}
-						
-						md.setId(id);
-						methods.put(id, md);
 					}
 				}
 			}
@@ -285,6 +297,15 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 	
 			viewTypeMap.put(clazz, viewType);
 		}
+	}
+	
+	private static boolean hasZeroId(int[] ids) {
+		for (int id: ids) {
+			if (id == 0) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	private void putAsyncJob(View v, AsyncJob job) {

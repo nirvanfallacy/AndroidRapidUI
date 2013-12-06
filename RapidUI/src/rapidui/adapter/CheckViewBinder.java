@@ -10,7 +10,7 @@ import android.widget.CompoundButton.OnCheckedChangeListener;
 
 public class CheckViewBinder extends ViewBinder {
 	@Override
-	public int getId(Annotation annotation) {
+	public int[] getIds(Annotation annotation) {
 		return ((BindToCheck) annotation).value();
 	}
 

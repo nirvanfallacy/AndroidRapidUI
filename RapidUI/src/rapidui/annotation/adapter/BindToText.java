@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface BindToText {
-	public int value();
+	public int[] value();
 }

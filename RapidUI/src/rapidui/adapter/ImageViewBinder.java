@@ -11,7 +11,7 @@ import android.widget.ImageView;
 
 public class ImageViewBinder extends ViewBinder {
 	@Override
-	public int getId(Annotation annotation) {
+	public int[] getIds(Annotation annotation) {
 		return ((BindToImage) annotation).value();
 	}
 
