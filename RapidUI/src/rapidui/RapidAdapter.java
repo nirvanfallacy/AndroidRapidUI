@@ -2,7 +2,9 @@ package rapidui;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -10,18 +12,33 @@ import java.util.WeakHashMap;
 
 import rapidui.adapter.AsyncMethodDataBinder;
 import rapidui.adapter.CheckViewBinder;
+import rapidui.adapter.ConstDataBinder;
 import rapidui.adapter.DataBinder;
 import rapidui.adapter.EnabledViewBinder;
 import rapidui.adapter.FieldDataBinder;
 import rapidui.adapter.ImageViewBinder;
 import rapidui.adapter.MethodDataBinder;
+import rapidui.adapter.ProgressMaxViewBinder;
+import rapidui.adapter.ProgressViewBinder;
+import rapidui.adapter.RatingNumStarsViewBinder;
+import rapidui.adapter.RatingReadOnlyViewBinder;
+import rapidui.adapter.RatingStepSizeViewBinder;
+import rapidui.adapter.RatingViewBinder;
+import rapidui.adapter.StaticConstDataBinder;
 import rapidui.adapter.TextViewBinder;
 import rapidui.adapter.ViewBinder;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToCheck;
 import rapidui.annotation.adapter.BindToEnabled;
 import rapidui.annotation.adapter.BindToImage;
+import rapidui.annotation.adapter.BindToProgress;
+import rapidui.annotation.adapter.BindToProgressMax;
+import rapidui.annotation.adapter.BindToRating;
+import rapidui.annotation.adapter.BindToRatingNumStars;
+import rapidui.annotation.adapter.BindToRatingReadOnly;
+import rapidui.annotation.adapter.BindToRatingStepSize;
 import rapidui.annotation.adapter.BindToText;
+import rapidui.annotation.adapter.OnBindToView;
 import android.content.Context;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
@@ -30,8 +47,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 
 public class RapidAdapter extends ArrayAdapter<Object> {
-	public static final int ID_CONTAINER = 0;
-	
 	private class AsyncJob implements Cancelable, Runnable {
 		private View v;
 		private boolean canceled;
@@ -79,6 +94,19 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 	}
 	
 	private static HashMap<Class<?>, ViewBinder> viewBinders;
+	private static DataBinder createFieldBinder(Field field, ViewBinder viewBinder) {
+		final int modifiers = field.getModifiers();
+		if ((modifiers & Modifier.FINAL) != 0) {
+			if ((modifiers & Modifier.STATIC) != 0) {
+				return new StaticConstDataBinder(field, viewBinder);
+			} else {
+				return new ConstDataBinder(field, viewBinder);
+			}
+		} else {
+			return new FieldDataBinder(field, viewBinder);
+		}
+	}
+
 	private static void ensureViewBinders() {
 		if (viewBinders != null) return;
 		
@@ -88,13 +116,29 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		viewBinders.put(BindToImage.class, new ImageViewBinder());
 		viewBinders.put(BindToCheck.class, new CheckViewBinder());
 		viewBinders.put(BindToEnabled.class, new EnabledViewBinder());
+		viewBinders.put(BindToProgress.class, new ProgressViewBinder());
+		viewBinders.put(BindToProgressMax.class, new ProgressMaxViewBinder());
+		viewBinders.put(BindToRating.class, new RatingViewBinder());
+		viewBinders.put(BindToRatingNumStars.class, new RatingNumStarsViewBinder());
+		viewBinders.put(BindToRatingReadOnly.class, new RatingReadOnlyViewBinder());
+		viewBinders.put(BindToRatingStepSize.class, new RatingStepSizeViewBinder());
 	}
 
-	private LayoutInflater inflater;
-
-	private HashMap<Class<?>, ViewType> viewTypeMap;
+	private static boolean hasZeroId(int[] ids) {
+		for (int id: ids) {
+			if (id == 0) {
+				return true;
+			}
+		}
+		return false;
+	}
 	
-	private WeakHashMap<View, AsyncJob> asyncJobs;
+	private LayoutInflater inflater;
+	private HashMap<Class<?>, ViewType> viewTypeMap;
+	WeakHashMap<View, AsyncJob> asyncJobs;
+	
+	private SparseArray<Method> bindListeners;
+	
 	private DataBinder enabledBinder;
 	
 	public RapidAdapter(Context context, Class<?>... classes) {
@@ -168,6 +212,26 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 			dataBinder.bind(item, v, asyncJob, asyncJob);
 		}
 		
+		if (bindListeners != null) {
+			for (int i = 0, c = bindListeners.size(); i < c; ++i) {
+				final int id = bindListeners.keyAt(i);
+				final Method method = bindListeners.valueAt(i);
+				
+				final View v = (id == 0 ? convertView : (View) convertView.getTag(id));
+				if (v == null) continue;
+				
+				try {
+					method.invoke(item, v);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
 		return convertView;
 	}
 	
@@ -212,23 +276,35 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							}
 						}
 						
-						final ViewBinder binder = viewBinders.get(annotation.annotationType());
-						if (binder == null) continue;
+						final ViewBinder vb = viewBinders.get(annotation.annotationType());
+						if (vb == null) continue;
 						
-						final int[] ids = binder.getIds(annotation);
+						final int[] ids = vb.getIds(annotation);
 						if (ids == null) continue;
 						
 						for (int id: ids) {
-							final FieldDataBinder fd = new FieldDataBinder(field, binder);
-							fd.setId(id);
+							final DataBinder db = createFieldBinder(field, vb);
+							db.setId(id);
 							
-							viewType.dataBinders.add(fd);
+							viewType.dataBinders.add(db);
 						}
 					}
 				}
 				
 				for (Method method: cls.getDeclaredMethods()) {
 					for (Annotation annotation: method.getAnnotations()) {
+						if (annotation instanceof OnBindToView) {
+							if (bindListeners == null) {
+								bindListeners = new SparseArray<Method>();
+							}
+							
+							final int[] ids = ((OnBindToView) annotation).value();
+							for (int id: ids) {
+								bindListeners.put(id, method);
+							}
+							continue;
+						}
+						
 						if (annotation instanceof BindToEnabled) {
 							final int[] ids = ((BindToEnabled) annotation).value();
 							if (ids.length == 0 || hasZeroId(ids)) {
@@ -299,21 +375,6 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		}
 	}
 	
-	private static boolean hasZeroId(int[] ids) {
-		for (int id: ids) {
-			if (id == 0) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	private void putAsyncJob(View v, AsyncJob job) {
-		synchronized (asyncJobs) {
-			asyncJobs.put(v, job);
-		}
-	}
-	
 	@Override
 	public boolean isEnabled(int position) {
 		if (enabledBinder == null) {
@@ -325,6 +386,12 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				e.printStackTrace();
 				return true;
 			}
+		}
+	}
+	
+	private void putAsyncJob(View v, AsyncJob job) {
+		synchronized (asyncJobs) {
+			asyncJobs.put(v, job);
 		}
 	}
 }

@@ -6,22 +6,14 @@ import rapidui.Cancelable;
 import rapidui.ValueCallback;
 import android.view.View;
 
-public class FieldDataBinder extends DataBinder {
-	private Field field;
-	
+public class FieldDataBinder extends ConstDataBinder {
 	public FieldDataBinder(Field field, ViewBinder binder) {
-		super(binder);
-		this.field = field;
+		super(field, binder);
 	}
 
 	@Override
 	public void bind(final Object instance, final View v, final Runnable callback, final Cancelable canceler) {
-		try {
-			viewBinder.bindValue(v, getValue(instance));
-		} catch (Exception e) {
-			e.printStackTrace();
-			return;
-		}
+		super.bind(instance, v, callback, canceler);
 		
 		// Bind listener
 		
@@ -38,11 +30,5 @@ public class FieldDataBinder extends DataBinder {
 				}
 			}
 		});
-	}
-
-	@Override
-	public Object getValue(Object instance) throws Exception {
-		field.setAccessible(true);
-		return field.get(instance);
 	}
 }

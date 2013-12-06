@@ -1,6 +1,5 @@
 package rapidui.test.basictest.adapter;
 
-import rapidui.RapidAdapter;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToCheck;
 import rapidui.annotation.adapter.BindToEnabled;
@@ -15,7 +14,7 @@ public class ListItem {
 	@BindToCheck(R.id.checkbox)
 	public boolean checked;
 	
-	@BindToEnabled({RapidAdapter.ID_CONTAINER, R.id.checkbox})
+	@BindToEnabled({0, R.id.checkbox})
 	private boolean enabled;
 	
 	public ListItem(String text, boolean checked) {
