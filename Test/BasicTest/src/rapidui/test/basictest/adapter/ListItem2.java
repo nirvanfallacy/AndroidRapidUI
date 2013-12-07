@@ -1,7 +1,7 @@
 package rapidui.test.basictest.adapter;
 
 import rapidui.annotation.AdapterItem;
-import rapidui.annotation.adapter.BindToCheck;
+import rapidui.annotation.adapter.BindToChecked;
 import rapidui.annotation.adapter.BindToText;
 import rapidui.test.basictest.R;
 
@@ -25,12 +25,12 @@ public class ListItem2 {
 		this.text = text;
 	}
 
-	@BindToCheck(R.id.checkbox)
+	@BindToChecked(R.id.checkbox)
 	public boolean isChecked() {
 		return checked;
 	}
 
-	@BindToCheck(R.id.checkbox)
+	@BindToChecked(R.id.checkbox)
 	public void setChecked(boolean checked) {
 		this.checked = checked;
 	}

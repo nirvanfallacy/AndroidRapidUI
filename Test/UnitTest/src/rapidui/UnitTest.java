@@ -2,7 +2,9 @@ package rapidui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
+import rapidui.RapidTask.WaitStrategy;
 import rapidui.test.adapter.ListItem1;
 import rapidui.test.unittest.R;
 import android.app.Instrumentation;
@@ -22,6 +24,8 @@ import android.widget.TextView;
 
 public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 	private TestActivity activity;
+	
+	private boolean dummyBoolean;
 	
 	public UnitTest() {
 		super("rapidui.test.unittest", TestActivity.class);
@@ -128,7 +132,7 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 	
 	@SuppressWarnings("deprecation")
 	@UiThreadTest
-	public void testAdapter1() {
+	public void testAdapter() {
 		final ListView listView = activity.listView;
 		
 		// Setup
@@ -162,13 +166,13 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 		v = listView.getChildAt(0);
 		assertFalse(((CheckBox) v.findViewById(R.id.checkbox)).isChecked());
 		assertEquals("qwerty", ((TextView) v.findViewById(R.id.textview)).getText().toString());
-//		assertEquals(12, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
+		assertEquals(12, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
 		assertEquals(5f, ((RatingBar) v.findViewById(R.id.ratingbar)).getRating());
 
 		v = listView.getChildAt(1);
 		assertFalse(((CheckBox) v.findViewById(R.id.checkbox)).isChecked());
 		assertEquals("asdf", ((TextView) v.findViewById(R.id.textview)).getText().toString());
-//		assertEquals(34, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
+		assertEquals(34, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
 		assertEquals(4.5f, ((RatingBar) v.findViewById(R.id.ratingbar)).getRating());
 
 		v = listView.getChildAt(2);
@@ -176,5 +180,51 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 		assertEquals("zxcv", ((TextView) v.findViewById(R.id.textview)).getText().toString());
 		assertEquals(56, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
 		assertEquals(4f, ((RatingBar) v.findViewById(R.id.ratingbar)).getRating());
+	}
+	
+	public void testTaskGet() {
+		RapidTask<String, String> task = new RapidTask<String, String>() {
+			@Override
+			protected String doInBackground(String... params) throws Exception {
+				return params[0];
+			}
+		};
+		
+		task.execute("asdf");
+
+		String result = null;
+		try {
+			result = task.get();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
+		}
+		
+		assertEquals("asdf", result);
+	}
+	
+	public void testTaskGetCanceled() {
+		RapidTask<String, String> task = new RapidTask<String, String>() {
+			@Override
+			protected String doInBackground(String... params) throws Exception {
+				dummyBoolean = true;
+				return null;
+			}
+		};
+		
+		dummyBoolean = false;
+		task.execute();
+		task.cancel(false);
+
+		try {
+			task.get(WaitStrategy.WAIT_EVEN_IF_CANCELED);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
+		}
+		
+		assertTrue(dummyBoolean);
 	}
 }

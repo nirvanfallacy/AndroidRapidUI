@@ -366,7 +366,7 @@ public abstract class RapidTask<Params, Result> {
      *         while waiting.
      */
     public final Result get() throws InterruptedException, ExecutionException {
-        return mFuture.get();
+    	return get(WaitStrategy.WAIT_NORMAL);
     }
     
     public final Result get(WaitStrategy strategy) throws InterruptedException, ExecutionException {
