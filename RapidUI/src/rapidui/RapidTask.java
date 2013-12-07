@@ -4,10 +4,11 @@ import java.util.ArrayDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -16,12 +17,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import android.app.ProgressDialog;
+import android.os.AsyncTask;
+import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
-import android.os.Handler;;
+import android.util.Log;
 
 public abstract class RapidTask<Params, Result> {
-    private static final String LOG_TAG = "AsyncTask";
+    private static final String LOG_TAG = "RapidTask";
+    
+    public enum WaitStrategy {
+    	WAIT_NORMAL,
+    	WAIT_EVEN_IF_CANCELED
+    }
 
     private static final int CORE_POOL_SIZE = 5;
     private static final int MAXIMUM_POOL_SIZE = 128;
@@ -31,7 +39,7 @@ public abstract class RapidTask<Params, Result> {
         private final AtomicInteger mCount = new AtomicInteger(1);
 
         public Thread newThread(Runnable r) {
-            return new Thread(r, "AsyncTask #" + mCount.getAndIncrement());
+            return new Thread(r, "RapidTask #" + mCount.getAndIncrement());
         }
     };
 
@@ -71,6 +79,8 @@ public abstract class RapidTask<Params, Result> {
     private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
     
     private ProgressDialog pd;
+    private int threadPriority;
+    private Semaphore mutex;
     
     private static class SerialExecutor implements Executor {
         final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
@@ -117,25 +127,20 @@ public abstract class RapidTask<Params, Result> {
         FINISHED,
     }
 
-    /** @hide Used to force static handler to be created. */
-    public static void init() {
-        sHandler.getLooper();
-    }
-
-    /** @hide */
-    public static void setDefaultExecutor(Executor exec) {
-        sDefaultExecutor = exec;
-    }
-
     /**
      * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
      */
     public RapidTask() {
+        sHandler.getLooper();
+    	
+    	threadPriority = Process.THREAD_PRIORITY_BACKGROUND;
+    	mutex = new Semaphore(1);
+    	
         mWorker = new WorkerRunnable<Params, Result>() {
             public Result call() throws Exception {
                 mTaskInvoked.set(true);
                 
-                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                Process.setThreadPriority(threadPriority);
                 //noinspection unchecked
                 
                 Result result;
@@ -153,6 +158,8 @@ public abstract class RapidTask<Params, Result> {
         mFuture = new FutureTask<Result>(mWorker) {
             @Override
             protected void done() {
+            	mutex.release();
+            	
                 try {
                     postResultIfNotInvoked(get());
                 } catch (InterruptedException e) {
@@ -175,9 +182,8 @@ public abstract class RapidTask<Params, Result> {
     }
 
     private Result postResult(Result result) {
-        Message message = sHandler.obtainMessage(MESSAGE_POST_RESULT,
-                new AsyncTaskResult<Result>(this, result));
-        message.sendToTarget();
+        sHandler.obtainMessage(MESSAGE_POST_RESULT,
+                new AsyncTaskResult<Result>(this, result)).sendToTarget();
         return result;
     }
 
@@ -362,6 +368,20 @@ public abstract class RapidTask<Params, Result> {
     public final Result get() throws InterruptedException, ExecutionException {
         return mFuture.get();
     }
+    
+    public final Result get(WaitStrategy strategy) throws InterruptedException, ExecutionException {
+    	try {
+    		return mFuture.get();
+    	} catch (CancellationException e) {
+    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
+   				mutex.acquire();
+    			mutex.release();
+    			return null;
+    		} else {
+    			throw e;
+    		}
+    	}
+    }
 
     /**
      * Waits if necessary for at most the given time for the computation
@@ -469,11 +489,16 @@ public abstract class RapidTask<Params, Result> {
             }
         }
 
-        mStatus = Status.RUNNING;
-
         pd = onCreateProgressDialog();
         onPreExecute();
 
+        mStatus = Status.RUNNING;
+        
+        try {
+			mutex.acquire();
+		} catch (InterruptedException e) {
+		}
+        
         mWorker.mParams = params;
         exec.execute(mFuture);
 
@@ -522,6 +547,16 @@ public abstract class RapidTask<Params, Result> {
     			new AsyncTaskResult<Runnable>(this, r)).sendToTarget();
     }
     
+    protected ProgressDialogTransaction beginProgressDialogTransaction() {
+    	return new ProgressDialogTransaction(new ProgressDialogTransaction.OnCommitListener() {
+			@Override
+			public void onCommit(ProgressDialogTransaction transaction) {
+		    	sHandler.obtainMessage(MESSAGE_PROGRESS_DIALOG_TRANSACTION,
+		    			new AsyncTaskResult<ProgressDialogTransaction>(RapidTask.this, transaction)).sendToTarget();
+			}
+		});
+    }
+    
     private static class InternalHandler extends Handler {
         @SuppressWarnings({"unchecked"})
         @Override
@@ -558,6 +593,12 @@ public abstract class RapidTask<Params, Result> {
                 		result.mTask.pd.setProgress((Integer) result.mData);
                 	}
                 	break;
+                	
+                case MESSAGE_PROGRESS_DIALOG_TRANSACTION:
+                	if (result.mTask.pd != null) {
+                		((ProgressDialogTransaction) result.mData).execute(result.mTask.pd);
+                	}
+                	break;
             }
         }
     }
@@ -576,5 +617,14 @@ public abstract class RapidTask<Params, Result> {
             mTask = task;
             mData = data;
         }
+    }
+    
+    public RapidTask<Params, Result> setThreadPriority(int priority) {
+    	if (mStatus != Status.PENDING) {
+    		Log.w(LOG_TAG, "setThreadPriority() should be called before the task executed.");
+    	} else {
+    		this.threadPriority = priority;
+    	}
+    	return this;
     }
 }
