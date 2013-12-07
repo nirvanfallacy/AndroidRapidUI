@@ -1,13 +1,24 @@
 package rapidui;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import rapidui.test.adapter.ListItem1;
 import rapidui.test.unittest.R;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.Resources;
 import android.test.SingleLaunchActivityTestCase;
 import android.test.UiThreadTest;
+import android.view.Display;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.View.MeasureSpec;
+import android.widget.CheckBox;
+import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.RatingBar;
+import android.widget.TextView;
 
 public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 	private TestActivity activity;
@@ -113,5 +124,57 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 		assertEquals(res.getDimensionPixelSize(R.dimen.test_dimen), activity.testDimenSize);
 		
 		assertEquals(res.getString(R.string.app_name), activity.appName);
+	}
+	
+	@SuppressWarnings("deprecation")
+	@UiThreadTest
+	public void testAdapter1() {
+		final ListView listView = activity.listView;
+		
+		// Setup
+		
+		final List<Object> items = new ArrayList<Object>();
+		
+		items.add(new ListItem1(false, "qwerty", 12, 5));
+		items.add(new ListItem1(false, "asdf", 34, 4.5f));
+		items.add(new ListItem1(true, "zxcv", 56, 4));
+		
+		final RapidAdapter adapter = new RapidAdapter(activity, items, ListItem1.class);
+		listView.setAdapter(adapter);
+		
+		// Force layout
+		
+		final Display display = activity.getWindowManager().getDefaultDisplay();
+
+		final int w = display.getWidth();
+		final int h = display.getHeight();
+		
+		final int wspec = MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY);
+		final int hspec = MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY);
+		
+		listView.measure(wspec, hspec);
+		listView.layout(0, 0, w, h);
+		
+		// Validate
+		
+		View v;
+		
+		v = listView.getChildAt(0);
+		assertFalse(((CheckBox) v.findViewById(R.id.checkbox)).isChecked());
+		assertEquals("qwerty", ((TextView) v.findViewById(R.id.textview)).getText().toString());
+//		assertEquals(12, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
+		assertEquals(5f, ((RatingBar) v.findViewById(R.id.ratingbar)).getRating());
+
+		v = listView.getChildAt(1);
+		assertFalse(((CheckBox) v.findViewById(R.id.checkbox)).isChecked());
+		assertEquals("asdf", ((TextView) v.findViewById(R.id.textview)).getText().toString());
+//		assertEquals(34, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
+		assertEquals(4.5f, ((RatingBar) v.findViewById(R.id.ratingbar)).getRating());
+
+		v = listView.getChildAt(2);
+		assertTrue(((CheckBox) v.findViewById(R.id.checkbox)).isChecked());
+		assertEquals("zxcv", ((TextView) v.findViewById(R.id.textview)).getText().toString());
+		assertEquals(56, ((ProgressBar) v.findViewById(R.id.progressbar)).getProgress());
+		assertEquals(4f, ((RatingBar) v.findViewById(R.id.ratingbar)).getRating());
 	}
 }

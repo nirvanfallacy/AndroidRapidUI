@@ -5,10 +5,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import rapidui.adapter.AsyncMethodDataBinder;
 import rapidui.adapter.CheckViewBinder;
@@ -28,7 +29,7 @@ import rapidui.adapter.StaticConstDataBinder;
 import rapidui.adapter.TextViewBinder;
 import rapidui.adapter.ViewBinder;
 import rapidui.annotation.AdapterItem;
-import rapidui.annotation.adapter.BindToCheck;
+import rapidui.annotation.adapter.BindToChecked;
 import rapidui.annotation.adapter.BindToEnabled;
 import rapidui.annotation.adapter.BindToImage;
 import rapidui.annotation.adapter.BindToProgress;
@@ -49,16 +50,15 @@ import android.widget.ArrayAdapter;
 public class RapidAdapter extends ArrayAdapter<Object> {
 	private class AsyncJob implements Cancelable, Runnable {
 		private View v;
-		private boolean canceled;
+		private AtomicBoolean canceled;
 		
 		public AsyncJob(View v) {
 			this.v = v;
+			this.canceled = new AtomicBoolean(false);
 		}
 		
 		public void cancel() {
-			synchronized (this) {
-				canceled = true;
-			}
+			canceled.set(true);
 			synchronized (asyncJobs) {
 				asyncJobs.remove(v);
 			}
@@ -66,9 +66,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 
 		@Override
 		public boolean isCanceled() {
-			synchronized (this) {
-				if (canceled) return true;
-			}
+			if (canceled.get()) return true;
 			synchronized (asyncJobs) {
 				return !asyncJobs.containsKey(v);
 			}
@@ -85,11 +83,12 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 	private static class ViewType {
 		public int viewType;
 		public int layoutId;
-		public LinkedList<DataBinder> dataBinders;
+		public ArrayList<DataBinder> dataBinders;
+		public ArrayList<DataBinder> constBinders;
 		
 		public ViewType(int viewType) {
 			this.viewType = viewType;
-			this.dataBinders = new LinkedList<DataBinder>();
+			this.dataBinders = new ArrayList<DataBinder>();
 		}
 	}
 	
@@ -114,7 +113,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		
 		viewBinders.put(BindToText.class, new TextViewBinder());
 		viewBinders.put(BindToImage.class, new ImageViewBinder());
-		viewBinders.put(BindToCheck.class, new CheckViewBinder());
+		viewBinders.put(BindToChecked.class, new CheckViewBinder());
 		viewBinders.put(BindToEnabled.class, new EnabledViewBinder());
 		viewBinders.put(BindToProgress.class, new ProgressViewBinder());
 		viewBinders.put(BindToProgressMax.class, new ProgressMaxViewBinder());
@@ -182,6 +181,15 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				if (id == 0) continue;
 				
 				convertView.setTag(id, convertView.findViewById(id));
+			}
+			
+			if (viewType.constBinders != null) {
+				for (DataBinder constBinder: viewType.constBinders) {
+					final int id = constBinder.getId();
+					
+					final View v = (id == 0 ? convertView : convertView.findViewById(id));
+					constBinder.bind(item, v, null, null);
+				}
 			}
 		}
 		
@@ -286,7 +294,24 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							final DataBinder db = createFieldBinder(field, vb);
 							db.setId(id);
 							
-							viewType.dataBinders.add(db);
+							final Class<?> dbClass = db.getClass();
+							boolean isStaticConst = false;
+							
+							if (dbClass.equals(ConstDataBinder.class) ||
+									(isStaticConst = dbClass.equals(StaticConstDataBinder.class))) {
+								
+								if (viewType.constBinders == null) {
+									viewType.constBinders = new ArrayList<DataBinder>();
+								}
+								
+								if (isStaticConst) {
+									viewType.constBinders.add((StaticConstDataBinder) db);
+								} else {
+									viewType.constBinders.add((ConstDataBinder) db);
+								}
+							} else {
+								viewType.dataBinders.add(db);
+							}
 						}
 					}
 				}

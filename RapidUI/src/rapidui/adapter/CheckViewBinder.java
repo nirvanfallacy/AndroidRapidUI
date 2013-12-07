@@ -3,7 +3,7 @@ package rapidui.adapter;
 import java.lang.annotation.Annotation;
 
 import rapidui.ValueCallback;
-import rapidui.annotation.adapter.BindToCheck;
+import rapidui.annotation.adapter.BindToChecked;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
@@ -11,7 +11,7 @@ import android.widget.CompoundButton.OnCheckedChangeListener;
 public class CheckViewBinder extends ViewBinder {
 	@Override
 	public int[] getIds(Annotation annotation) {
-		return ((BindToCheck) annotation).value();
+		return ((BindToChecked) annotation).value();
 	}
 
 	@Override
