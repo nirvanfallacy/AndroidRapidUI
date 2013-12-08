@@ -27,6 +27,10 @@ public class HashMap2<TKey1, TKey2, TValue> implements Iterable<Entry<TKey1, Has
 		return map2.get(key2);
 	}
 	
+	public HashMap<TKey2, TValue> get(TKey1 key1) {
+		return map.get(key1);
+	}
+	
 	@Override
 	public Iterator<Entry<TKey1, HashMap<TKey2, TValue>>> iterator() {
 		return map.entrySet().iterator(); 

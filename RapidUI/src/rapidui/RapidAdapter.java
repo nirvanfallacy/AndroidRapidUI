@@ -395,6 +395,11 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 			}
 
 			viewType.viewType = i + 1;
+			
+			viewType.dataBinders.trimToSize();
+			if (viewType.constBinders != null) {
+				viewType.constBinders.trimToSize();
+			}
 	
 			viewTypeMap.put(clazz, viewType);
 		}

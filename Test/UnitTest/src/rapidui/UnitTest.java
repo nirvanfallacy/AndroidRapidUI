@@ -208,8 +208,12 @@ public class UnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 		RapidTask<String, String> task = new RapidTask<String, String>() {
 			@Override
 			protected String doInBackground(String... params) throws Exception {
-				dummyBoolean = true;
 				return null;
+			}
+			
+			@Override
+			protected void onCancelled() {
+				dummyBoolean = true;
 			}
 		};
 		

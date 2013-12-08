@@ -1,5 +1,7 @@
 package rapidui;
 
+import static rapidui.util.Shortcuts.newHashMap;
+
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.ref.WeakReference;
@@ -13,7 +15,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map.Entry;
+import java.util.concurrent.Executor;
 
+import rapidui.RapidTask.OnStatusChangedListener;
+import rapidui.RapidTask.Status;
 import rapidui.annotation.BindService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
@@ -568,12 +573,12 @@ public abstract class HostExtension {
 			systemServices.put(DisplayManager.class, Context.DISPLAY_SERVICE);
 			systemServices.put(UserManager.class, Context.USER_SERVICE);
 		}
-		if (version >= 19) {
+//		if (version >= 19) {
 //			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
 //			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
 //			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
 //			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
-		}
+//		}
 	}
 	
 	protected static boolean isRapidClass(Class<?> cls) {
@@ -693,7 +698,10 @@ public abstract class HostExtension {
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
 	private HashSet<ServiceConnection> serviceConnections;
 	private HashMap<String, ServiceCallback> serviceCallbacks;
-
+	
+	private HashMap<String, SingletonTaskInfo> singletonTasks;
+	private HashMap<TaskLifecycle, HashSet<TaskInfo>> tasks;
+	
 	public HostExtension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
@@ -1552,5 +1560,125 @@ public abstract class HostExtension {
 				typefaces = null;
 			}
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
+			final RapidTask<Progress, ?> task, Progress... params) {
+
+		if (singletonTasks == null) {
+			singletonTasks = new HashMap<String, SingletonTaskInfo>();
+		} else {
+			final TaskInfo taskInfo = singletonTasks.get(name);
+			if (taskInfo != null) {
+				// Cancel previous running task if exists.
+				
+				HashSet<TaskInfo> set = tasks.get(taskInfo.lifecycle);
+				if (set != null) {
+					set.remove(taskInfo);
+				}
+				taskInfo.task.cancel(false);
+			}
+		}
+		
+		final SingletonTaskInfo taskInfo = new SingletonTaskInfo();
+		taskInfo.lifecycle = lifecycle;
+		taskInfo.name = name;
+		taskInfo.task = task;
+		
+		addTask(lifecycle, taskInfo);
+		singletonTasks.put(name, taskInfo);
+		
+		task.setOnStatusChangedListener(new OnStatusChangedListener() {
+			@Override
+			public void onStatusChanged(Status status) {
+				if (status != Status.FINISHED) return;
+				
+				removeTask(lifecycle, task);
+				singletonTasks.remove(name);
+			}
+		});
+		
+		task.executeOnExecutor(exec, params);
+	}
+
+	@SuppressWarnings("unchecked")
+	public <Progress> void execute(final TaskLifecycle lifecycle, Executor exec,
+			final RapidTask<Progress, ?> task, Progress... params) {
+
+		final TaskInfo taskInfo = new TaskInfo();
+		taskInfo.lifecycle = lifecycle;
+		taskInfo.task = task;
+		
+		addTask(lifecycle, taskInfo);
+		
+		task.setOnStatusChangedListener(new OnStatusChangedListener() {
+			@Override
+			public void onStatusChanged(Status status) {
+				if (status != Status.FINISHED) return;
+				removeTask(lifecycle, task);
+			}
+		});
+		
+		task.executeOnExecutor(exec, params);
+	}
+	
+	private void addTask(TaskLifecycle lifecycle, TaskInfo taskInfo) {
+		if (tasks == null) {
+			tasks = newHashMap();
+		}
+		
+		HashSet<TaskInfo> set = tasks.get(lifecycle);
+		if (set == null) {
+			set = new HashSet<TaskInfo>();
+			tasks.put(lifecycle, set);
+		}
+
+		set.add(taskInfo);
+	}
+	
+	@SuppressWarnings("rawtypes")
+	private void removeTask(TaskLifecycle lifecycle, RapidTask task) {
+		if (tasks == null) return;
+		
+		final HashSet<TaskInfo> set = tasks.get(lifecycle);
+		if (set == null) return;
+		
+		final Iterator<TaskInfo> it = set.iterator();
+		while (it.hasNext()) {
+			final TaskInfo taskInfo = it.next();
+			if (taskInfo.task.equals(task)) {
+				it.remove();
+				break;
+			}
+		}
+	}
+
+	private static class TaskInfo {
+		@SuppressWarnings("rawtypes")
+		public RapidTask task;
+		public TaskLifecycle lifecycle;
+	}
+	
+	private static class SingletonTaskInfo extends TaskInfo {
+		public String name;
+	}
+	
+	public void cancelTasks(TaskLifecycle lifecycle) {
+		if (tasks == null) return;
+		
+		final HashSet<TaskInfo> set = tasks.get(lifecycle);
+		if (set == null) return;
+		
+		for (TaskInfo taskInfo: set) {
+			if (singletonTasks != null && taskInfo instanceof SingletonTaskInfo) {
+				final SingletonTaskInfo sti = (SingletonTaskInfo) taskInfo;
+				singletonTasks.remove(sti.name);
+			}
+			
+			taskInfo.task.cancel(false);
+		}
+
+		set.clear();
 	}
 }

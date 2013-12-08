@@ -17,12 +17,12 @@ import android.view.MenuItem;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class ActivityHostExtension extends HostExtension {
+public class ActivityExtension extends HostExtension {
 	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
 	
 	private SparseArray<EventHandlerInfo> menuItemClickHandlers;
 	
-	public ActivityHostExtension(Activity activity) {
+	public ActivityExtension(Activity activity) {
 		super(activity, activity, new ActivityViewFinder(activity));
 	}
 	
