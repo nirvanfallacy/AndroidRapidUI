@@ -8,6 +8,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,6 +41,7 @@ import rapidui.annotation.adapter.BindToRatingReadOnly;
 import rapidui.annotation.adapter.BindToRatingStepSize;
 import rapidui.annotation.adapter.BindToText;
 import rapidui.annotation.adapter.OnBindToView;
+import rapidui.util.SparseArray2;
 import android.content.Context;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
@@ -256,7 +258,8 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		viewTypeMap = new HashMap<Class<?>, ViewType>();
 		asyncJobs = new WeakHashMap<View, RapidAdapter.AsyncJob>();
 		
-		final SparseArray<MethodDataBinder> methods = new SparseArray<MethodDataBinder>();
+		// [id][annotationType][methodBinder]
+		final SparseArray2<Class<?>, MethodDataBinder> methods = SparseArray2.create();
 		
 		for (int i = 0, c = classes.length; i < c; ++i) {
 			final ViewType viewType = new ViewType(i + 1);
@@ -355,7 +358,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							} else if (paramTypes.length == 2) {
 								// Async getter
 								
-								md = methods.get(id);
+								md = methods.get(id, annotation.annotationType());
 								if (md == null) {
 									md = new AsyncMethodDataBinder(binder);
 								} else if (!(md instanceof AsyncMethodDataBinder)) {
@@ -366,7 +369,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							} else {
 								// Sync getter or setter
 	
-								md = methods.get(id);
+								md = methods.get(id, annotation.annotationType());
 								if (md == null) {
 									md = new MethodDataBinder(binder);
 								} else if (md instanceof AsyncMethodDataBinder) {
@@ -383,15 +386,16 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							}
 							
 							md.setId(id);
-							methods.put(id, md);
+							methods.put(id, annotation.annotationType(), md);
 						}
 					}
 				}
 			}
 			
-			for (int j = 0, d = methods.size(); j < d; ++j) {
-				final MethodDataBinder md = methods.valueAt(j);
-				viewType.dataBinders.add(md);
+			for (Entry<Integer, HashMap<Class<?>, MethodDataBinder>> entry: methods) {
+				for (MethodDataBinder md: entry.getValue().values()) {
+					viewType.dataBinders.add(md);
+				}
 			}
 
 			viewType.viewType = i + 1;

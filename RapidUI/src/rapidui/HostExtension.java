@@ -26,6 +26,7 @@ import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Lifecycle;
+import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
@@ -129,6 +130,9 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
@@ -140,6 +144,9 @@ import android.widget.TextView;
 public abstract class HostExtension {
 	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
+	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
+	
+	private SparseArray<EventHandlerInfo> menuItemClickHandlers;
 	
 	private static class AutoEventName {
 		public String target;
@@ -582,7 +589,8 @@ public abstract class HostExtension {
 	}
 	
 	protected static boolean isRapidClass(Class<?> cls) {
-		return cls.equals(RapidActivity.class);
+		return cls.equals(RapidActivity.class) ||
+				cls.equals(RapidFragment.class);
 	}
 	private static boolean parseAutoEventName(Method method, AutoEventName out) {
 		final String name = method.getName();
@@ -1365,7 +1373,24 @@ public abstract class HostExtension {
 			});
 			
 			break;
+			
+		case HOST_EVENT_MENU_ITEM_CLICK:
+			if (id == null) break;
+
+			if (menuItemClickHandlers == null) {
+				menuItemClickHandlers = new SparseArray<EventHandlerInfo>();
+			}
+			
+			final ArgumentMapper argMatcher = new ArgumentMapper(argsMenuItemClick, method);
+			menuItemClickHandlers.put((Integer) id,
+					new EventHandlerInfo(method, argMatcher));
+			
+			break;
 		}
+	}
+
+	private EventHandlerInfo getMenuItemClickHandler(int id) {
+		return (menuItemClickHandlers == null ? null : menuItemClickHandlers.get(id));
 	}
 	
 	public void registerListeners(Lifecycle lifecycle) {
@@ -1680,5 +1705,53 @@ public abstract class HostExtension {
 		}
 
 		set.clear();
+	}
+
+	public boolean onOptionsItemSelected(MenuItem item) {
+		final int id = item.getItemId();
+		if (id != 0) {
+			final EventHandlerInfo info = getMenuItemClickHandler(id);
+			if (info != null) {
+				try {
+					info.method.setAccessible(true);
+					return (Boolean) info.method.invoke(memberContainer, info.argMatcher.match(item));
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
+		return false;
+	}
+	
+	protected abstract String getHostNamePostFix();
+
+	public void injectOptionsMenu(MenuInflater inflater, Menu menu) {
+		final Resources res = activity.getResources();
+		final Class<?> activityClass = activity.getClass();
+
+		final OptionsMenu optionsMenu = activityClass.getAnnotation(OptionsMenu.class);
+		if (optionsMenu != null) {
+			int id = optionsMenu.value();
+			if (id == 0) {
+				final String packageName = activity.getPackageName();
+				final String postfix = getHostNamePostFix();
+				
+				String name = activityClass.getSimpleName();
+				if (name.length() > 8 && name.endsWith(postfix)) {
+					name = ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - postfix.length()));
+				} else {
+					name = ResourceUtils.toLowerUnderscored(name);
+				}
+
+				id = res.getIdentifier(name, "menu", packageName);
+			}
+
+			inflater.inflate(id, menu);
+		}
 	}
 }

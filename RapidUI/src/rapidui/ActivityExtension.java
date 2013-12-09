@@ -1,27 +1,15 @@
 package rapidui;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import rapidui.annotation.FullScreen;
 import rapidui.annotation.Layout;
-import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.TitleBar;
 import rapidui.annotation.TitleBarType;
 import android.app.Activity;
 import android.content.res.Resources;
-import android.util.SparseArray;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.Window;
 import android.view.WindowManager;
 
 public class ActivityExtension extends HostExtension {
-	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
-	
-	private SparseArray<EventHandlerInfo> menuItemClickHandlers;
-	
 	public ActivityExtension(Activity activity) {
 		super(activity, activity, new ActivityViewFinder(activity));
 	}
@@ -29,6 +17,8 @@ public class ActivityExtension extends HostExtension {
 	public void injectActivity() {
 		final Resources res = activity.getResources();
 		final Window w = activity.getWindow();
+		
+		boolean contentViewSet = false;
 		
 		Class<?> cls = activity.getClass();
 		
@@ -48,7 +38,7 @@ public class ActivityExtension extends HostExtension {
 			// Layout
 			
 			final Layout layout = cls.getAnnotation(Layout.class);
-			if (layout != null) {
+			if (!contentViewSet && layout != null) {
 				int id = layout.value();
 				if (id == 0) {
 					final String packageName = activity.getPackageName();
@@ -64,6 +54,7 @@ public class ActivityExtension extends HostExtension {
 				}
 				
 				activity.setContentView(id);
+				contentViewSet = true;
 			}
 			
 			// Fullscreen
@@ -82,74 +73,8 @@ public class ActivityExtension extends HostExtension {
 		}
 	}
 
-	public void injectOptionsMenu(MenuInflater inflater, Menu menu) {
-		final Resources res = activity.getResources();
-		final Class<?> activityClass = activity.getClass();
-
-		final OptionsMenu optionsMenu = activityClass.getAnnotation(OptionsMenu.class);
-		if (optionsMenu != null) {
-			int id = optionsMenu.value();
-			if (id == 0) {
-				final String packageName = activity.getPackageName();
-				
-				String name = activityClass.getSimpleName();
-				if (name.length() > 8 && name.endsWith("Activity")) {
-					name = ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - 8));
-				} else {
-					name = ResourceUtils.toLowerUnderscored(name);
-				}
-
-				id = res.getIdentifier(name, "menu", packageName);
-			}
-
-			inflater.inflate(id, menu);
-		}
-	}
-	
 	@Override
-	public void registerHostEvent(Object annotation, int type, Object id, Method method) {
-		switch (type) {
-		case HOST_EVENT_MENU_ITEM_CLICK:
-			if (id == null) break;
-
-			if (menuItemClickHandlers == null) {
-				menuItemClickHandlers = new SparseArray<EventHandlerInfo>();
-			}
-			
-			final ArgumentMapper argMatcher = new ArgumentMapper(argsMenuItemClick, method);
-			menuItemClickHandlers.put((Integer) id,
-					new EventHandlerInfo(method, argMatcher));
-			
-			break;
-			
-		default:
-			super.registerHostEvent(annotation, type, id, method);
-			break;
-		}
-	}
-	
-	private EventHandlerInfo getMenuItemClickHandler(int id) {
-		return (menuItemClickHandlers == null ? null : menuItemClickHandlers.get(id));
-	}
-	
-	public boolean onOptionsItemSelected(MenuItem item) {
-		final int id = item.getItemId();
-		if (id != 0) {
-			final EventHandlerInfo info = getMenuItemClickHandler(id);
-			if (info != null) {
-				try {
-					info.method.setAccessible(true);
-					return (Boolean) info.method.invoke(memberContainer, info.argMatcher.match(item));
-				} catch (IllegalAccessException e) {
-					e.printStackTrace();
-				} catch (IllegalArgumentException e) {
-					e.printStackTrace();
-				} catch (InvocationTargetException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		
-		return false;
+	protected String getHostNamePostFix() {
+		return "Activity";
 	}
 }

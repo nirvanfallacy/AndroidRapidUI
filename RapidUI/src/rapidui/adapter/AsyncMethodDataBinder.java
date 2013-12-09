@@ -19,7 +19,7 @@ public class AsyncMethodDataBinder extends MethodDataBinder {
 	public void bind(final Object instance, final View v, final Runnable callback, final Cancelable canceler) {
 		// Bind value
 		
-		final AsyncDataBinderCallback getterCallback = new AsyncDataBinderCallback() {
+		final AsyncCallback getterCallback = new AsyncCallback() {
 			@Override
 			public void done(final Object result) {
 				publish(result, true);
