@@ -25,69 +25,68 @@ import android.os.Process;
 import android.util.Log;
 
 public abstract class RapidTask<Params, Result> {
-    private static final String LOG_TAG = "RapidTask";
+    private static class AsyncTaskResult<Data> {
+		@SuppressWarnings("rawtypes")
+		final RapidTask mTask;
+        final Data mData;
+
+        @SuppressWarnings("rawtypes")
+		AsyncTaskResult(RapidTask task, Data data) {
+            mTask = task;
+            mData = data;
+        }
+    }
     
-    public enum WaitStrategy {
-    	WAIT_NORMAL,
-    	WAIT_EVEN_IF_CANCELED
+    private static class InternalHandler extends Handler {
+        @SuppressWarnings({"unchecked"})
+        @Override
+        public void handleMessage(Message msg) {
+            AsyncTaskResult<?> result = (AsyncTaskResult<?>) msg.obj;
+            switch (msg.what) {
+                case MESSAGE_POST_RESULT:
+                    // There is only one result
+                    result.mTask.finish(result.mData);
+                    break;
+                    
+                case MESSAGE_POST_EXCEPTION:
+                	result.mTask.finishWithException((Exception) result.mData);
+                	break;
+                    
+                case MESSAGE_POST_RUNNABLE:
+                	((Runnable) result.mData).run();
+                    break;
+                    
+                case MESSAGE_SET_PROGRESS_DIALOG_MESSAGE:
+                	if (result.mTask.pd != null) {
+                		result.mTask.pd.setMessage((CharSequence) result.mData);
+                	}
+                	break;
+
+                case MESSAGE_SET_PROGRESS_DIALOG_TITLE:
+                	if (result.mTask.pd != null) {
+                		result.mTask.pd.setTitle((CharSequence) result.mData);
+                	}
+                	break;
+
+                case MESSAGE_SET_PROGRESS_DIALOG_PROGRESS:
+                	if (result.mTask.pd != null) {
+                		result.mTask.pd.setProgress((Integer) result.mData);
+                	}
+                	break;
+                	
+                case MESSAGE_PROGRESS_DIALOG_TRANSACTION:
+                	if (result.mTask.pd != null) {
+                		((ProgressDialogTransaction) result.mData).execute(result.mTask.pd);
+                	}
+                	break;
+            }
+        }
     }
     
     public interface OnStatusChangedListener {
     	void onStatusChanged(Status status);
     }
 
-    private static final int CORE_POOL_SIZE = 5;
-    private static final int MAXIMUM_POOL_SIZE = 128;
-    private static final int KEEP_ALIVE = 1;
-
-    private static final ThreadFactory sThreadFactory = new ThreadFactory() {
-        private final AtomicInteger mCount = new AtomicInteger(1);
-
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "RapidTask #" + mCount.getAndIncrement());
-        }
-    };
-
-    private static final BlockingQueue<Runnable> sPoolWorkQueue =
-            new LinkedBlockingQueue<Runnable>(10);
-
-    /**
-     * An {@link Executor} that can be used to execute tasks in parallel.
-     */
-    public static final Executor THREAD_POOL_EXECUTOR
-            = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE,
-                    TimeUnit.SECONDS, sPoolWorkQueue, sThreadFactory);
-
-    /**
-     * An {@link Executor} that executes tasks one at a time in serial
-     * order.  This serialization is global to a particular process.
-     */
-    public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
-
-    private static final int MESSAGE_POST_RESULT = 1;
-    private static final int MESSAGE_POST_EXCEPTION = 2;
-    private static final int MESSAGE_POST_RUNNABLE = 3;
-    private static final int MESSAGE_SET_PROGRESS_DIALOG_MESSAGE = 4;
-    private static final int MESSAGE_SET_PROGRESS_DIALOG_TITLE = 5;
-    private static final int MESSAGE_SET_PROGRESS_DIALOG_PROGRESS = 6;
-    private static final int MESSAGE_PROGRESS_DIALOG_TRANSACTION = 7;
-
-    private static final InternalHandler sHandler = new InternalHandler();
-
-    static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
-    private final WorkerRunnable<Params, Result> mWorker;
-    private final FutureTask<Result> mFuture;
-
-    private volatile Status mStatus = Status.PENDING;
-    private final AtomicBoolean mCancelled = new AtomicBoolean();
-    private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
-    
-    private ProgressDialog pd;
-    private int threadPriority;
-    private Semaphore mutex;
-    
-    private OnStatusChangedListener onStatusChanged;
-    
     private static class SerialExecutor implements Executor {
         final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
         Runnable mActive;
@@ -113,7 +112,6 @@ public abstract class RapidTask<Params, Result> {
             }
         }
     }
-
     /**
      * Indicates the current status of the task. Each status will be set only once
      * during the lifetime of a task.
@@ -132,7 +130,83 @@ public abstract class RapidTask<Params, Result> {
          */
         FINISHED,
     }
+    public enum WaitStrategy {
+    	WAIT_NORMAL,
+    	WAIT_EVEN_IF_CANCELED
+    }
 
+    private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {
+        Params[] mParams;
+    }
+
+    private static final String LOG_TAG = "RapidTask";
+
+    private static final int CORE_POOL_SIZE = 5;
+
+    private static final int MAXIMUM_POOL_SIZE = 128;
+
+    private static final int KEEP_ALIVE = 1;
+    private static final ThreadFactory sThreadFactory = new ThreadFactory() {
+        private final AtomicInteger mCount = new AtomicInteger(1);
+
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "RapidTask #" + mCount.getAndIncrement());
+        }
+    };
+    private static final BlockingQueue<Runnable> sPoolWorkQueue =
+            new LinkedBlockingQueue<Runnable>(10);
+    /**
+     * An {@link Executor} that can be used to execute tasks in parallel.
+     */
+    public static final Executor THREAD_POOL_EXECUTOR
+            = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE,
+                    TimeUnit.SECONDS, sPoolWorkQueue, sThreadFactory);
+    /**
+     * An {@link Executor} that executes tasks one at a time in serial
+     * order.  This serialization is global to a particular process.
+     */
+    public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
+    private static final int MESSAGE_POST_RESULT = 1;
+    private static final int MESSAGE_POST_EXCEPTION = 2;
+
+    private static final int MESSAGE_POST_RUNNABLE = 3;
+
+    private static final int MESSAGE_SET_PROGRESS_DIALOG_MESSAGE = 4;
+    private static final int MESSAGE_SET_PROGRESS_DIALOG_TITLE = 5;
+    private static final int MESSAGE_SET_PROGRESS_DIALOG_PROGRESS = 6;
+
+    private static final int MESSAGE_PROGRESS_DIALOG_TRANSACTION = 7;
+    private static final InternalHandler sHandler = new InternalHandler();
+    static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
+    
+    /**
+     * Convenience version of {@link #execute(Object...)} for use with
+     * a simple Runnable object. See {@link #execute(Object[])} for more
+     * information on the order of execution.
+     *
+     * @see #execute(Object[])
+     * @see #executeOnExecutor(java.util.concurrent.Executor, Object[])
+     */
+    public static void execute(Runnable runnable) {
+        sDefaultExecutor.execute(runnable);
+    }
+    private final WorkerRunnable<Params, Result> mWorker;
+    private final FutureTask<Result> mFuture;
+    
+    private volatile Status mStatus = Status.PENDING;
+    
+    private final AtomicBoolean mCancelled = new AtomicBoolean();
+
+    private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
+
+    private ProgressDialog pd;
+
+    private int threadPriority;
+
+    private Semaphore mutex;
+
+    private OnStatusChangedListener onStatusChanged;
+    
     /**
      * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
      */
@@ -179,152 +253,16 @@ public abstract class RapidTask<Params, Result> {
             }
         };
     }
-
-    private void postResultIfNotInvoked(Result result) {
-        final boolean wasTaskInvoked = mTaskInvoked.get();
-        if (!wasTaskInvoked) {
-            postResult(result);
-        }
-    }
-
-    private Result postResult(Result result) {
-    	sHandler.obtainMessage(MESSAGE_POST_RESULT,
-                new AsyncTaskResult<Result>(this, result)).sendToTarget();
-        return result;
-    }
-
-    private void postException(Exception e) {
-    	sHandler.obtainMessage(MESSAGE_POST_EXCEPTION,
-                new AsyncTaskResult<Exception>(this, e)).sendToTarget();
-    }
     
-    public void setProgressMessage(CharSequence message) {
-    	if (!isCancelled()) {
-	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_MESSAGE,
-	        		new AsyncTaskResult<CharSequence>(this, message)).sendToTarget();
-    	}
-    }
-    
-    public void setProgressTitle(CharSequence title) {
-    	if (!isCancelled()) {
-	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_TITLE,
-	        		new AsyncTaskResult<CharSequence>(this, title)).sendToTarget();
-    	}
+    protected ProgressDialogTransaction beginProgressDialogTransaction() {
+    	return new ProgressDialogTransaction(new ProgressDialogTransaction.OnCommitListener() {
+			@Override
+			public void onCommit(ProgressDialogTransaction transaction) {
+		    	sHandler.obtainMessage(MESSAGE_PROGRESS_DIALOG_TRANSACTION,
+		    			new AsyncTaskResult<ProgressDialogTransaction>(RapidTask.this, transaction)).sendToTarget();
+			}
+		});
     }    
-
-    public void setProgress(int progress) {
-    	if (!isCancelled()) {
-	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_PROGRESS,
-	        		new AsyncTaskResult<Integer>(this, progress)).sendToTarget();
-    	}
-    }    
-    
-    /**
-     * Returns the current status of this task.
-     *
-     * @return The current status.
-     */
-    public final Status getStatus() {
-        return mStatus;
-    }
-
-    /**
-     * Override this method to perform a computation on a background thread. The
-     * specified parameters are the parameters passed to {@link #execute}
-     * by the caller of this task.
-     *
-     * This method can call {@link #publishProgress} to publish updates
-     * on the UI thread.
-     *
-     * @param params The parameters of the task.
-     *
-     * @return A result, defined by the subclass of this task.
-     *
-     * @see #onPreExecute()
-     * @see #onPostExecute
-     * @see #publishProgress
-     */
-    @SuppressWarnings("unchecked")
-	protected abstract Result doInBackground(Params... params) throws Exception;
-    
-    protected ProgressDialog onCreateProgressDialog() {
-    	return null;
-    }
-
-    /**
-     * Runs on the UI thread before {@link #doInBackground}.
-     *
-     * @see #onPostExecute
-     * @see #doInBackground
-     */
-    protected void onPreExecute() {
-    }
-
-    /**
-     * <p>Runs on the UI thread after {@link #doInBackground}. The
-     * specified result is the value returned by {@link #doInBackground}.</p>
-     * 
-     * <p>This method won't be invoked if the task was cancelled.</p>
-     *
-     * @param result The result of the operation computed by {@link #doInBackground}.
-     *
-     * @see #onPreExecute
-     * @see #doInBackground
-     * @see #onCancelled(Object) 
-     */
-    protected void onPostExecute(Result result) {
-    }
-    
-    protected void onException(Exception e) {
-    	throw new RuntimeException(e);
-    }
-
-    /**
-     * <p>Runs on the UI thread after {@link #cancel(boolean)} is invoked and
-     * {@link #doInBackground(Object[])} has finished.</p>
-     * 
-     * <p>The default implementation simply invokes {@link #onCancelled()} and
-     * ignores the result. If you write your own implementation, do not call
-     * <code>super.onCancelled(result)</code>.</p>
-     *
-     * @param result The result, if any, computed in
-     *               {@link #doInBackground(Object[])}, can be null
-     * 
-     * @see #cancel(boolean)
-     * @see #isCancelled()
-     */
-    protected void onCancelled(Result result) {
-        onCancelled();
-    }    
-    
-    /**
-     * <p>Applications should preferably override {@link #onCancelled(Object)}.
-     * This method is invoked by the default implementation of
-     * {@link #onCancelled(Object)}.</p>
-     * 
-     * <p>Runs on the UI thread after {@link #cancel(boolean)} is invoked and
-     * {@link #doInBackground(Object[])} has finished.</p>
-     *
-     * @see #onCancelled(Object) 
-     * @see #cancel(boolean)
-     * @see #isCancelled()
-     */
-    protected void onCancelled() {
-    }
-
-    /**
-     * Returns <tt>true</tt> if this task was cancelled before it completed
-     * normally. If you are calling {@link #cancel(boolean)} on the task,
-     * the value returned by this method should be checked periodically from
-     * {@link #doInBackground(Object[])} to end the task as soon as possible.
-     *
-     * @return <tt>true</tt> if task was cancelled before it completed
-     *
-     * @see #cancel(boolean)
-     */
-    public final boolean isCancelled() {
-        return mCancelled.get();
-    }
 
     /**
      * <p>Attempts to cancel execution of this task.  This attempt will
@@ -358,90 +296,33 @@ public abstract class RapidTask<Params, Result> {
     public final boolean cancel(boolean mayInterruptIfRunning) {
         mCancelled.set(true);
         return mFuture.cancel(mayInterruptIfRunning);
-    }
-
-    /**
-     * Waits if necessary for the computation to complete, and then
-     * retrieves its result.
-     *
-     * @return The computed result.
-     *
-     * @throws CancellationException If the computation was cancelled.
-     * @throws ExecutionException If the computation threw an exception.
-     * @throws InterruptedException If the current thread was interrupted
-     *         while waiting.
-     */
-    public final Result get() throws InterruptedException, ExecutionException {
-    	return get(WaitStrategy.WAIT_NORMAL);
-    }
+    }    
     
-    public final Result get(WaitStrategy strategy) throws InterruptedException, ExecutionException {
-    	Result result;
-    	
-    	try {
-    		result = mFuture.get();
-    	} catch (CancellationException e) {
-    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
-   				mutex.acquire();
-    			mutex.release();
-    			result = null;
-    		} else {
-    			throw e;
-    		}
+    private void dismissDialog() {
+    	if (pd != null) {
+    		pd.dismiss();
+    		pd = null;
     	}
-    	
-    	if (Thread.currentThread().equals(Looper.getMainLooper().getThread())) {
-    		finish(result);
-    	}
-    	
-    	return result;
     }
 
     /**
-     * Waits if necessary for at most the given time for the computation
-     * to complete, and then retrieves its result.
+     * Override this method to perform a computation on a background thread. The
+     * specified parameters are the parameters passed to {@link #execute}
+     * by the caller of this task.
      *
-     * @param timeout Time to wait before cancelling the operation.
-     * @param unit The time unit for the timeout.
+     * This method can call {@link #publishProgress} to publish updates
+     * on the UI thread.
      *
-     * @return The computed result.
+     * @param params The parameters of the task.
      *
-     * @throws CancellationException If the computation was cancelled.
-     * @throws ExecutionException If the computation threw an exception.
-     * @throws InterruptedException If the current thread was interrupted
-     *         while waiting.
-     * @throws TimeoutException If the wait timed out.
+     * @return A result, defined by the subclass of this task.
+     *
+     * @see #onPreExecute()
+     * @see #onPostExecute
+     * @see #publishProgress
      */
-    public final Result get(long timeout, TimeUnit unit) throws InterruptedException,
-            ExecutionException, TimeoutException {
-        
-    	return get(WaitStrategy.WAIT_NORMAL, timeout, unit);
-    }
-
-    public final Result get(WaitStrategy strategy, long timeout, TimeUnit unit) throws InterruptedException,
-	    	ExecutionException, TimeoutException {
-    	
-    	Result result;
-    	
-    	try {
-    		result = mFuture.get(timeout, unit);
-    	} catch (CancellationException e) {
-    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
-   				mutex.acquire();
-    			mutex.release();
-    			result = null;
-    		} else {
-    			throw e;
-    		}
-    	}
-    	
-    	if (Thread.currentThread().equals(Looper.getMainLooper().getThread())) {
-    		finish(result);
-    	}
-    	
-    	return result;
-	}
-
+    @SuppressWarnings("unchecked")
+	protected abstract Result doInBackground(Params... params) throws Exception;
     
     /**
      * Executes the task with the specified parameters. The task returns
@@ -549,25 +430,6 @@ public abstract class RapidTask<Params, Result> {
         return this;
     }
 
-    /**
-     * Convenience version of {@link #execute(Object...)} for use with
-     * a simple Runnable object. See {@link #execute(Object[])} for more
-     * information on the order of execution.
-     *
-     * @see #execute(Object[])
-     * @see #executeOnExecutor(java.util.concurrent.Executor, Object[])
-     */
-    public static void execute(Runnable runnable) {
-        sDefaultExecutor.execute(runnable);
-    }
-    
-    private void dismissDialog() {
-    	if (pd != null) {
-    		pd.dismiss();
-    		pd = null;
-    	}
-    }
-    
     private void finish(Result result) {
     	if (mStatus == Status.FINISHED) return;
     	setStatus(Status.FINISHED);
@@ -588,6 +450,225 @@ public abstract class RapidTask<Params, Result> {
     	dismissDialog();
         onException(e);
     }
+
+    /**
+     * Waits if necessary for the computation to complete, and then
+     * retrieves its result.
+     *
+     * @return The computed result.
+     *
+     * @throws CancellationException If the computation was cancelled.
+     * @throws ExecutionException If the computation threw an exception.
+     * @throws InterruptedException If the current thread was interrupted
+     *         while waiting.
+     */
+    public final Result get() throws InterruptedException, ExecutionException {
+    	return get(WaitStrategy.WAIT_NORMAL);
+    }    
+    
+    /**
+     * Waits if necessary for at most the given time for the computation
+     * to complete, and then retrieves its result.
+     *
+     * @param timeout Time to wait before cancelling the operation.
+     * @param unit The time unit for the timeout.
+     *
+     * @return The computed result.
+     *
+     * @throws CancellationException If the computation was cancelled.
+     * @throws ExecutionException If the computation threw an exception.
+     * @throws InterruptedException If the current thread was interrupted
+     *         while waiting.
+     * @throws TimeoutException If the wait timed out.
+     */
+    public final Result get(long timeout, TimeUnit unit) throws InterruptedException,
+            ExecutionException, TimeoutException {
+        
+    	return get(WaitStrategy.WAIT_NORMAL, timeout, unit);
+    }
+
+    public final Result get(WaitStrategy strategy) throws InterruptedException, ExecutionException {
+    	Result result;
+    	
+    	try {
+    		result = mFuture.get();
+    	} catch (CancellationException e) {
+    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
+   				mutex.acquire();
+    			mutex.release();
+    			result = null;
+    		} else {
+    			throw e;
+    		}
+    	}
+    	
+    	if (Thread.currentThread().equals(Looper.getMainLooper().getThread())) {
+    		finish(result);
+    	}
+    	
+    	return result;
+    }
+
+    public final Result get(WaitStrategy strategy, long timeout, TimeUnit unit) throws InterruptedException,
+	    	ExecutionException, TimeoutException {
+    	
+    	Result result;
+    	
+    	try {
+    		result = mFuture.get(timeout, unit);
+    	} catch (CancellationException e) {
+    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
+   				mutex.acquire();
+    			mutex.release();
+    			result = null;
+    		} else {
+    			throw e;
+    		}
+    	}
+    	
+    	if (Thread.currentThread().equals(Looper.getMainLooper().getThread())) {
+    		finish(result);
+    	}
+    	
+    	return result;
+	}
+
+    /**
+     * Returns the current status of this task.
+     *
+     * @return The current status.
+     */
+    public final Status getStatus() {
+        return mStatus;
+    }
+    
+    /**
+     * Returns <tt>true</tt> if this task was cancelled before it completed
+     * normally. If you are calling {@link #cancel(boolean)} on the task,
+     * the value returned by this method should be checked periodically from
+     * {@link #doInBackground(Object[])} to end the task as soon as possible.
+     *
+     * @return <tt>true</tt> if task was cancelled before it completed
+     *
+     * @see #cancel(boolean)
+     */
+    public final boolean isCancelled() {
+        return mCancelled.get();
+    }
+
+    /**
+     * <p>Applications should preferably override {@link #onCancelled(Object)}.
+     * This method is invoked by the default implementation of
+     * {@link #onCancelled(Object)}.</p>
+     * 
+     * <p>Runs on the UI thread after {@link #cancel(boolean)} is invoked and
+     * {@link #doInBackground(Object[])} has finished.</p>
+     *
+     * @see #onCancelled(Object) 
+     * @see #cancel(boolean)
+     * @see #isCancelled()
+     */
+    protected void onCancelled() {
+    }
+
+    /**
+     * <p>Runs on the UI thread after {@link #cancel(boolean)} is invoked and
+     * {@link #doInBackground(Object[])} has finished.</p>
+     * 
+     * <p>The default implementation simply invokes {@link #onCancelled()} and
+     * ignores the result. If you write your own implementation, do not call
+     * <code>super.onCancelled(result)</code>.</p>
+     *
+     * @param result The result, if any, computed in
+     *               {@link #doInBackground(Object[])}, can be null
+     * 
+     * @see #cancel(boolean)
+     * @see #isCancelled()
+     */
+    protected void onCancelled(Result result) {
+        onCancelled();
+    }
+
+    
+    protected ProgressDialog onCreateProgressDialog() {
+    	return null;
+    }
+
+    protected void onException(Exception e) {
+    	throw new RuntimeException(e);
+    }
+
+    /**
+     * <p>Runs on the UI thread after {@link #doInBackground}. The
+     * specified result is the value returned by {@link #doInBackground}.</p>
+     * 
+     * <p>This method won't be invoked if the task was cancelled.</p>
+     *
+     * @param result The result of the operation computed by {@link #doInBackground}.
+     *
+     * @see #onPreExecute
+     * @see #doInBackground
+     * @see #onCancelled(Object) 
+     */
+    protected void onPostExecute(Result result) {
+    }
+    
+    /**
+     * Runs on the UI thread before {@link #doInBackground}.
+     *
+     * @see #onPostExecute
+     * @see #doInBackground
+     */
+    protected void onPreExecute() {
+    }
+    
+    private void postException(Exception e) {
+    	sHandler.obtainMessage(MESSAGE_POST_EXCEPTION,
+                new AsyncTaskResult<Exception>(this, e)).sendToTarget();
+    }
+    
+    private Result postResult(Result result) {
+    	sHandler.obtainMessage(MESSAGE_POST_RESULT,
+                new AsyncTaskResult<Result>(this, result)).sendToTarget();
+        return result;
+    }
+    
+    private void postResultIfNotInvoked(Result result) {
+        final boolean wasTaskInvoked = mTaskInvoked.get();
+        if (!wasTaskInvoked) {
+            postResult(result);
+        }
+    }
+    
+    protected void runOnUiThread(Runnable r) {
+    	sHandler.obtainMessage(MESSAGE_POST_RUNNABLE,
+    			new AsyncTaskResult<Runnable>(this, r)).sendToTarget();
+    }
+    
+    public void setOnStatusChangedListener(OnStatusChangedListener listener) {
+    	this.onStatusChanged = listener;
+    }
+    
+    public void setProgress(int progress) {
+    	if (!isCancelled()) {
+	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_PROGRESS,
+	        		new AsyncTaskResult<Integer>(this, progress)).sendToTarget();
+    	}
+    }
+
+    public void setProgressMessage(CharSequence message) {
+    	if (!isCancelled()) {
+	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_MESSAGE,
+	        		new AsyncTaskResult<CharSequence>(this, message)).sendToTarget();
+    	}
+    }
+
+    public void setProgressTitle(CharSequence title) {
+    	if (!isCancelled()) {
+	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_TITLE,
+	        		new AsyncTaskResult<CharSequence>(this, title)).sendToTarget();
+    	}
+    }
     
     private void setStatus(Status newStatus) {
     	if (mStatus == newStatus) return;
@@ -598,83 +679,6 @@ public abstract class RapidTask<Params, Result> {
     	}
     }
     
-    protected void runOnUiThread(Runnable r) {
-    	sHandler.obtainMessage(MESSAGE_POST_RUNNABLE,
-    			new AsyncTaskResult<Runnable>(this, r)).sendToTarget();
-    }
-    
-    protected ProgressDialogTransaction beginProgressDialogTransaction() {
-    	return new ProgressDialogTransaction(new ProgressDialogTransaction.OnCommitListener() {
-			@Override
-			public void onCommit(ProgressDialogTransaction transaction) {
-		    	sHandler.obtainMessage(MESSAGE_PROGRESS_DIALOG_TRANSACTION,
-		    			new AsyncTaskResult<ProgressDialogTransaction>(RapidTask.this, transaction)).sendToTarget();
-			}
-		});
-    }
-    
-    private static class InternalHandler extends Handler {
-        @SuppressWarnings({"unchecked"})
-        @Override
-        public void handleMessage(Message msg) {
-            AsyncTaskResult<?> result = (AsyncTaskResult<?>) msg.obj;
-            switch (msg.what) {
-                case MESSAGE_POST_RESULT:
-                    // There is only one result
-                    result.mTask.finish(result.mData);
-                    break;
-                    
-                case MESSAGE_POST_EXCEPTION:
-                	result.mTask.finishWithException((Exception) result.mData);
-                	break;
-                    
-                case MESSAGE_POST_RUNNABLE:
-                	((Runnable) result.mData).run();
-                    break;
-                    
-                case MESSAGE_SET_PROGRESS_DIALOG_MESSAGE:
-                	if (result.mTask.pd != null) {
-                		result.mTask.pd.setMessage((CharSequence) result.mData);
-                	}
-                	break;
-
-                case MESSAGE_SET_PROGRESS_DIALOG_TITLE:
-                	if (result.mTask.pd != null) {
-                		result.mTask.pd.setTitle((CharSequence) result.mData);
-                	}
-                	break;
-
-                case MESSAGE_SET_PROGRESS_DIALOG_PROGRESS:
-                	if (result.mTask.pd != null) {
-                		result.mTask.pd.setProgress((Integer) result.mData);
-                	}
-                	break;
-                	
-                case MESSAGE_PROGRESS_DIALOG_TRANSACTION:
-                	if (result.mTask.pd != null) {
-                		((ProgressDialogTransaction) result.mData).execute(result.mTask.pd);
-                	}
-                	break;
-            }
-        }
-    }
-
-    private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {
-        Params[] mParams;
-    }
-
-    private static class AsyncTaskResult<Data> {
-		@SuppressWarnings("rawtypes")
-		final RapidTask mTask;
-        final Data mData;
-
-        @SuppressWarnings("rawtypes")
-		AsyncTaskResult(RapidTask task, Data data) {
-            mTask = task;
-            mData = data;
-        }
-    }
-    
     public RapidTask<Params, Result> setThreadPriority(int priority) {
     	if (mStatus != Status.PENDING) {
     		Log.w(LOG_TAG, "setThreadPriority() should be called before the task executed.");
@@ -682,9 +686,5 @@ public abstract class RapidTask<Params, Result> {
     		this.threadPriority = priority;
     	}
     	return this;
-    }
-    
-    public void setOnStatusChangedListener(OnStatusChangedListener listener) {
-    	this.onStatusChanged = listener;
     }
 }
