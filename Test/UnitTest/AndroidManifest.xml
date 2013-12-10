@@ -23,6 +23,10 @@
             android:name="rapidui.TestActivity"
             android:label="@string/title_activity_main" >
         </activity>
+        <activity
+            android:name="rapidui.TestFragmentActivity">
+        </activity>
+        
     </application>
 
 </manifest>

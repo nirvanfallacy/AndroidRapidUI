@@ -3,10 +3,10 @@ package rapidui;
 import android.app.Activity;
 import android.view.View;
 
-public class ActivityViewFinder extends ViewFinder {
+public class ActivityHost extends Host {
 	private Activity activity;
 	
-	public ActivityViewFinder(Activity activity) {
+	public ActivityHost(Activity activity) {
 		this.activity = activity;
 	}
 

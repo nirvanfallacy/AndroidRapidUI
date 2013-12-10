@@ -126,6 +126,7 @@ import android.os.PowerManager;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
+import android.support.v4.app.Fragment;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.SparseArray;
@@ -699,7 +700,7 @@ public abstract class HostExtension {
 	protected Activity activity;
 
 	protected Object memberContainer;
-	protected ViewFinder viewFinder;
+	protected Host viewFinder;
 	
 	private Lifecycle currentLifecycle;
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
@@ -710,7 +711,7 @@ public abstract class HostExtension {
 	private HashMap<String, SingletonTaskInfo> singletonTasks;
 	private HashMap<TaskLifecycle, HashSet<TaskInfo>> tasks;
 	
-	public HostExtension(Activity activity, Object memberContainer, ViewFinder viewFinder) {
+	public HostExtension(Activity activity, Object memberContainer, Host viewFinder) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
 		this.viewFinder = viewFinder;

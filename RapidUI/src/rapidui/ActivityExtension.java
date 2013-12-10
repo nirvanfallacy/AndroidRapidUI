@@ -11,7 +11,7 @@ import android.view.WindowManager;
 
 public class ActivityExtension extends HostExtension {
 	public ActivityExtension(Activity activity) {
-		super(activity, activity, new ActivityViewFinder(activity));
+		super(activity, activity, new ActivityHost(activity));
 	}
 	
 	public void injectActivity() {

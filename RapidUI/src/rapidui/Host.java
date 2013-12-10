@@ -2,6 +2,6 @@ package rapidui;
 
 import android.view.View;
 
-public abstract class ViewFinder {
+public abstract class Host {
 	public abstract View findViewById(int id);
 }

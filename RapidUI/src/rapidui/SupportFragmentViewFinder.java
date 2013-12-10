@@ -3,7 +3,7 @@ package rapidui;
 import android.support.v4.app.Fragment;
 import android.view.View;
 
-public class SupportFragmentViewFinder extends ViewFinder {
+public class SupportFragmentViewFinder extends Host {
 	private Fragment fragment;
 	
 	public SupportFragmentViewFinder(Fragment fragment) {

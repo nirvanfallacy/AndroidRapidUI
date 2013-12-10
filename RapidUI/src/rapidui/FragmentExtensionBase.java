@@ -3,11 +3,12 @@ package rapidui;
 import rapidui.annotation.Layout;
 import android.app.Activity;
 import android.content.res.Resources;
+import android.support.v4.app.Fragment;
 import android.view.View;
 import android.view.ViewGroup;
 
 public abstract class FragmentExtensionBase extends HostExtension {
-	public FragmentExtensionBase(Activity activity, Object memberContainer, ViewFinder viewFinder) {
+	public FragmentExtensionBase(Activity activity, Object memberContainer, Host viewFinder) {
 		super(activity, memberContainer, viewFinder);
 	}
 	

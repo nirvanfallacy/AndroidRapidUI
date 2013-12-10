@@ -16,19 +16,6 @@ public class RapidSupportFragment extends Fragment {
 	private FragmentExtensionBase ext = new SupportFragmentExtension(this);
 	
 	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		ext.setCurrentLifecycle(Lifecycle.CREATE);
-		ext.injectCommonThings();
-
-		if (savedInstanceState != null) {
-			ext.restoreInstanceStates(savedInstanceState);
-		}
-
-		ext.registerReceivers(Lifecycle.CREATE);
-	}
-	
-	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
 
@@ -38,6 +25,14 @@ public class RapidSupportFragment extends Fragment {
 	@Override
 	public void onActivityCreated(Bundle savedInstanceState) {
 		super.onActivityCreated(savedInstanceState);
+		ext.setCurrentLifecycle(Lifecycle.CREATE);
+		ext.injectCommonThings();
+
+		if (savedInstanceState != null) {
+			ext.restoreInstanceStates(savedInstanceState);
+		}
+
+		ext.registerReceivers(Lifecycle.CREATE);
 		ext.injectViews();
 	}
 

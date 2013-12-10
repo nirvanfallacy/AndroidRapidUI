@@ -3,10 +3,10 @@ package rapidui;
 import android.app.Fragment;
 import android.view.View;
 
-public class FragmentViewFinder extends ViewFinder {
+public class FragmentHost extends Host {
 	private Fragment fragment;
 	
-	public FragmentViewFinder(Fragment fragment) {
+	public FragmentHost(Fragment fragment) {
 		this.fragment = fragment;
 	}
 
