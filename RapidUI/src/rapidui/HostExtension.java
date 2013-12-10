@@ -126,7 +126,6 @@ import android.os.PowerManager;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
-import android.support.v4.app.Fragment;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.SparseArray;
@@ -591,7 +590,9 @@ public abstract class HostExtension {
 	
 	protected static boolean isRapidClass(Class<?> cls) {
 		return cls.equals(RapidActivity.class) ||
-				cls.equals(RapidFragment.class);
+				cls.equals(RapidFragment.class) ||
+				cls.equals(RapidSupportActivity.class) ||
+				cls.equals(RapidSupportFragment.class);
 	}
 	private static boolean parseAutoEventName(Method method, AutoEventName out) {
 		final String name = method.getName();
@@ -700,7 +701,7 @@ public abstract class HostExtension {
 	protected Activity activity;
 
 	protected Object memberContainer;
-	protected Host viewFinder;
+	protected Host host;
 	
 	private Lifecycle currentLifecycle;
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
@@ -714,13 +715,13 @@ public abstract class HostExtension {
 	public HostExtension(Activity activity, Object memberContainer, Host viewFinder) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
-		this.viewFinder = viewFinder;
+		this.host = viewFinder;
 	}
 	
 	private View findViewById(int id, SparseArray<View> viewMap) {
 		View v = viewMap.get(id);
 		if (v == null) {
-			v = viewFinder.findViewById(id);
+			v = host.findViewById(id);
 			viewMap.put(id, v);
 		}
 		
@@ -1034,7 +1035,7 @@ public abstract class HostExtension {
 		
 		field.setAccessible(true);
 		try {
-			final View v = viewFinder.findViewById(id);
+			final View v = host.findViewById(id);
 			field.set(memberContainer, v);
 			
 			if (v != null) {
@@ -1733,16 +1734,16 @@ public abstract class HostExtension {
 
 	public void injectOptionsMenu(MenuInflater inflater, Menu menu) {
 		final Resources res = activity.getResources();
-		final Class<?> activityClass = activity.getClass();
+		final Class<?> cls = memberContainer.getClass();
 
-		final OptionsMenu optionsMenu = activityClass.getAnnotation(OptionsMenu.class);
+		final OptionsMenu optionsMenu = cls.getAnnotation(OptionsMenu.class);
 		if (optionsMenu != null) {
 			int id = optionsMenu.value();
 			if (id == 0) {
 				final String packageName = activity.getPackageName();
 				final String postfix = getHostNamePostFix();
 				
-				String name = activityClass.getSimpleName();
+				String name = cls.getSimpleName();
 				if (name.length() > 8 && name.endsWith(postfix)) {
 					name = ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - postfix.length()));
 				} else {

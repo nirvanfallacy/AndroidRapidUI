@@ -14,4 +14,9 @@ public class FragmentHost extends Host {
 	public View findViewById(int id) {
 		return fragment.getView().findViewById(id);
 	}
+
+	@Override
+	public void setHasOptionsMenu(boolean hasMenu) {
+		fragment.setHasOptionsMenu(hasMenu);
+	}
 }

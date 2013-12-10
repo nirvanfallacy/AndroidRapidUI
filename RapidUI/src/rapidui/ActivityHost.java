@@ -14,4 +14,8 @@ public class ActivityHost extends Host {
 	public View findViewById(int id) {
 		return activity.findViewById(id);
 	}
+
+	@Override
+	public void setHasOptionsMenu(boolean hasMenu) {
+	}
 }

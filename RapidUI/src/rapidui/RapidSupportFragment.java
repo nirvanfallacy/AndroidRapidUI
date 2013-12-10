@@ -3,6 +3,7 @@ package rapidui;
 import java.util.concurrent.Executor;
 
 import rapidui.annotation.Lifecycle;
+import android.app.Activity;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
@@ -13,13 +14,19 @@ import android.view.View;
 import android.view.ViewGroup;
 
 public class RapidSupportFragment extends Fragment {
-	private FragmentExtensionBase ext = new SupportFragmentExtension(this);
+	private FragmentExtension ext;
+	
+	@Override
+	public void onAttach(Activity activity) {
+		super.onAttach(activity);
+		ext = new FragmentExtension(activity, this, new SupportFragmentHost(this));
+	}
 	
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
 
-		return ext.injectFragment(container);
+		return ext.injectFragment(inflater, container);
 	}
 	
 	@Override

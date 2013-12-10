@@ -1,7 +1,9 @@
 package rapidui;
 
 import rapidui.test.unittest.R;
+import android.app.Instrumentation;
 import android.test.SingleLaunchActivityTestCase;
+import android.view.KeyEvent;
 import android.view.View;
 
 public class FragmentUnitTest extends SingleLaunchActivityTestCase<TestFragmentActivity> {
@@ -16,19 +18,19 @@ public class FragmentUnitTest extends SingleLaunchActivityTestCase<TestFragmentA
 	protected void setUp() throws Exception {
 		super.setUp();
 		activity = getActivity();
-		fragment = (TestFragment) activity.getSupportFragmentManager().findFragmentById(R.id.fragment_test);
+		fragment = (TestFragment) activity.getFragmentManager().findFragmentById(R.id.fragment_test);
 	}
 	
-//	public void testMenu() {
-//		activity.settingsMenuClicked = false;
-//		
-//		final Instrumentation inst = getInstrumentation();
-//		
-//		inst.sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
-//		inst.invokeMenuActionSync(activity, R.id.action_settings, 0);
-//		
-//		assertEquals(true, activity.settingsMenuClicked);
-//	}
+	public void testMenu() {
+		fragment.settingsMenuClicked = false;
+		
+		final Instrumentation inst = getInstrumentation();
+		
+		inst.sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
+		inst.invokeMenuActionSync(activity, R.id.action_settings, 0);
+		
+		assertEquals(true, fragment.settingsMenuClicked);
+	}
 	
 	public void testFindViewsById() {
 		final View textHelloWorld = fragment.getView().findViewById(R.id.text_hello_world);
@@ -36,8 +38,8 @@ public class FragmentUnitTest extends SingleLaunchActivityTestCase<TestFragmentA
 		assertSame(textHelloWorld, fragment.mTextHelloWorld);
 		assertSame(textHelloWorld, fragment.helloWorld);
 		
-//		final View button1 = activity.findViewById(R.id.button1);
-//		assertSame(button1, activity.button1);
+		final View button1 = fragment.getView().findViewById(R.id.button1);
+		assertSame(button1, fragment.button1);
 	}
 	
 //	public void testSystemServices() {
