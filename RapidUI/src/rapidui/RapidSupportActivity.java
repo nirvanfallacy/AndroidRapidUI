@@ -80,6 +80,7 @@ public class RapidSupportActivity extends FragmentActivity {
 	public void setContentView(int layoutResID) {
 		ext.unregisterAllListeners();
 		super.setContentView(layoutResID);
+		ext.setCustomTitleBarId();
 		ext.injectViews();
 		ext.registerListenersToCurrentLifecycle();
 	}
@@ -88,6 +89,7 @@ public class RapidSupportActivity extends FragmentActivity {
 	public void setContentView(View view) {
 		ext.unregisterAllListeners();
 		super.setContentView(view);
+		ext.setCustomTitleBarId();
 		ext.injectViews();
 		ext.registerListenersToCurrentLifecycle();
 	}
@@ -96,6 +98,7 @@ public class RapidSupportActivity extends FragmentActivity {
 	public void setContentView(View view, LayoutParams params) {
 		ext.unregisterAllListeners();
 		super.setContentView(view, params);
+		ext.setCustomTitleBarId();
 		ext.injectViews();
 		ext.registerListenersToCurrentLifecycle();
 	}

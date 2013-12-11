@@ -49,6 +49,11 @@ public class AsyncMethodDataBinder extends MethodDataBinder {
 					v.post(r);
 				}
 			}
+
+			@Override
+			public void done() {
+				publish(null, true);
+			}
 		};
 		
 		getter.setAccessible(true);

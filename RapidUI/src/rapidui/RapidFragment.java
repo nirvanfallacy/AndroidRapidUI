@@ -46,6 +46,7 @@ public class RapidFragment extends Fragment {
 	public void onActivityCreated(Bundle savedInstanceState) {
 		super.onActivityCreated(savedInstanceState);
 		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
 	}
 
 	@Override

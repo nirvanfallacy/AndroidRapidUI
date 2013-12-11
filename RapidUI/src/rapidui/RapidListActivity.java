@@ -1,5 +1,7 @@
 package rapidui;
 
+import java.util.concurrent.Executor;
+
 import rapidui.annotation.Lifecycle;
 import android.os.Bundle;
 import android.view.Menu;
@@ -35,6 +37,7 @@ public class RapidListActivity extends android.app.ListActivity {
 		ext.unbindServices();
 		ext.unregisterListeners(Lifecycle.CREATE);
 		ext.unregisterReceivers(Lifecycle.CREATE);
+		ext.cancelTasks(TaskLifecycle.CANCEL_ON_DESTROY);
 		super.onDestroy();
 	}
 	
@@ -52,6 +55,7 @@ public class RapidListActivity extends android.app.ListActivity {
 		ext.setCurrentLifecycle(Lifecycle.CREATE);
 		ext.unregisterListeners(Lifecycle.START);
 		ext.unregisterReceivers(Lifecycle.START);
+		ext.cancelTasks(TaskLifecycle.CANCEL_ON_STOP);
 	}
 	
 	@Override
@@ -68,12 +72,14 @@ public class RapidListActivity extends android.app.ListActivity {
 		ext.setCurrentLifecycle(Lifecycle.START);
 		ext.unregisterListeners(Lifecycle.RESUME);
 		ext.unregisterReceivers(Lifecycle.RESUME);
+		ext.cancelTasks(TaskLifecycle.CANCEL_ON_PAUSE);
 	}
 	
 	@Override
 	public void setContentView(int layoutResID) {
 		ext.unregisterAllListeners();
 		super.setContentView(layoutResID);
+		ext.setCustomTitleBarId();
 		ext.injectViews();
 		ext.registerListenersToCurrentLifecycle();
 	}
@@ -82,6 +88,7 @@ public class RapidListActivity extends android.app.ListActivity {
 	public void setContentView(View view) {
 		ext.unregisterAllListeners();
 		super.setContentView(view);
+		ext.setCustomTitleBarId();
 		ext.injectViews();
 		ext.registerListenersToCurrentLifecycle();
 	}
@@ -90,6 +97,7 @@ public class RapidListActivity extends android.app.ListActivity {
 	public void setContentView(View view, LayoutParams params) {
 		ext.unregisterAllListeners();
 		super.setContentView(view, params);
+		ext.setCustomTitleBarId();
 		ext.injectViews();
 		ext.registerListenersToCurrentLifecycle();
 	}
@@ -109,5 +117,57 @@ public class RapidListActivity extends android.app.ListActivity {
 	public void onLowMemory() {
 		super.onLowMemory();
 		ext.collect();
+	}
+
+	@SuppressWarnings("unchecked")
+	public <Progress> void executeSingleton(String name, RapidTask<Progress, ?> task, Progress... params) {
+		ext.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, RapidTask.sDefaultExecutor, task, params);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <Progress> void executeSingleton(String name, Executor exec,
+			RapidTask<Progress, ?> task, Progress... params) {
+		
+		ext.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, exec, task, params);
+	}
+
+	@SuppressWarnings("unchecked")
+	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name,
+			final RapidTask<Progress, ?> task, Progress... params) {
+		
+		ext.executeSingleton(lifecycle, name, RapidTask.sDefaultExecutor, task, params);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
+			final RapidTask<Progress, ?> task, Progress... params) {
+
+		ext.executeSingleton(lifecycle, name, exec, task, params);
+	}
+
+	@SuppressWarnings("unchecked")
+	public <Progress> void execute(final RapidTask<Progress, ?> task, Progress... params) {
+		ext.execute(TaskLifecycle.CANCEL_ON_DESTROY, RapidTask.sDefaultExecutor, task, params);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <Progress> void execute(Executor exec,
+			final RapidTask<Progress, ?> task, Progress... params) {
+		
+		ext.execute(TaskLifecycle.CANCEL_ON_DESTROY, exec, task, params);
+	}
+
+	@SuppressWarnings("unchecked")
+	public <Progress> void execute(final TaskLifecycle lifecycle, 
+			final RapidTask<Progress, ?> task, Progress... params) {
+		
+		ext.execute(lifecycle, RapidTask.sDefaultExecutor, task, params);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <Progress> void execute(final TaskLifecycle lifecycle, Executor exec,
+			final RapidTask<Progress, ?> task, Progress... params) {
+		
+		ext.execute(lifecycle, exec, task, params);
 	}
 }

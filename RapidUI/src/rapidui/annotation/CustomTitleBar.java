@@ -7,7 +7,6 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface TitleBar {
-	public TitleBarType value() default TitleBarType.DEFAULT;
-	public int id() default 0;
+public @interface CustomTitleBar {
+	public int value();
 }
