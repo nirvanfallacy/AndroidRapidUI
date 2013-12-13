@@ -93,6 +93,7 @@ import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
+import android.app.AppOpsManager;
 import android.app.DownloadManager;
 import android.app.KeyguardManager;
 import android.app.NotificationManager;
@@ -110,6 +111,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.graphics.Typeface;
+import android.hardware.ConsumerIrManager;
 import android.hardware.SensorManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
@@ -131,6 +133,7 @@ import android.os.PowerManager;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
+import android.print.PrintManager;
 import android.support.v4.view.MenuItemCompat;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -143,6 +146,7 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.CaptioningManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 import android.widget.SearchView;
@@ -596,12 +600,12 @@ public abstract class HostExtension {
 			systemServices.put(DisplayManager.class, Context.DISPLAY_SERVICE);
 			systemServices.put(UserManager.class, Context.USER_SERVICE);
 		}
-//		if (version >= 19) {
-//			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
-//			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
-//			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
-//			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
-//		}
+		if (version >= 19) {
+			systemServices.put(AppOpsManager.class, Context.APP_OPS_SERVICE);
+			systemServices.put(CaptioningManager.class, Context.CAPTIONING_SERVICE);
+			systemServices.put(ConsumerIrManager.class, Context.CONSUMER_IR_SERVICE);
+			systemServices.put(PrintManager.class, Context.PRINT_SERVICE);
+		}
 	}
 	
 	protected static boolean isRapidClass(Class<?> cls) {

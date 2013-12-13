@@ -8,6 +8,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
+import android.widget.Toast;
 
 public class RapidSupport7Activity extends ActionBarActivity {
 	private ActivityExtension ext;
@@ -175,5 +176,17 @@ public class RapidSupport7Activity extends ActionBarActivity {
 	
 	public void cancelSingletonTask(String name) {
 		ext.cancelSingletonTask(name);
+	}
+	
+	public void toast(String text) {
+		Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+	}
+	
+	public void toast(String text, int duration) {
+		Toast.makeText(this, text, duration).show();
+	}
+	
+	public void toastLong(String text) {
+		Toast.makeText(this, text, Toast.LENGTH_LONG).show();
 	}
 }
