@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface BindService {
+public @interface ConnectService {
 	public String action() default "";
 	public String alias() default "";
 	public boolean autoCreate() default true;

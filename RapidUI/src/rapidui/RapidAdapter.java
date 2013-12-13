@@ -162,8 +162,9 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		init(classes);
 	}
 	
-	public RapidAdapter(Context context, List<Object> list, Class<?>... classes) {
-		super(context, 0, list);
+	@SuppressWarnings("unchecked")
+	public RapidAdapter(Context context, List<?> list, Class<?>... classes) {
+		super(context, 0, (List<Object>) list);
 		init(classes);
 	}
 	
@@ -442,5 +443,10 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		synchronized (asyncJobs) {
 			asyncJobs.put(v, job);
 		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <T> T get(int position) {
+		return (T) getItem(position);
 	}
 }

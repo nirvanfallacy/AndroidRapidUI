@@ -15,4 +15,5 @@ public @interface Receiver {
 	public String[] extra() default {};
 	public String[] category() default {};
 	public Lifecycle lifecycle() default Lifecycle.START;
+	public String[] dataScheme() default {};
 }

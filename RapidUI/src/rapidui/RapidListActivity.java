@@ -9,11 +9,13 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 
 public class RapidListActivity extends android.app.ListActivity {
-	private ActivityExtension ext = new ActivityExtension(this);
+	private ActivityExtension ext;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		ext = new ActivityExtension(this);
 		ext.setCurrentLifecycle(Lifecycle.CREATE);
 		ext.injectCommonThings();
 		ext.injectActivity();
@@ -168,5 +170,9 @@ public class RapidListActivity extends android.app.ListActivity {
 			final RapidTask<Progress, ?> task, Progress... params) {
 		
 		ext.execute(lifecycle, exec, task, params);
+	}
+	
+	public void cancelSingletonTask(String name) {
+		ext.cancelSingletonTask(name);
 	}
 }

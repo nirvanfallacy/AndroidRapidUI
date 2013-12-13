@@ -1,7 +1,7 @@
 package rapidui.test.basictest.bindservice;
 
 import rapidui.RapidActivity;
-import rapidui.annotation.BindService;
+import rapidui.annotation.ConnectService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
@@ -13,7 +13,7 @@ public class BindServiceTestActivity extends RapidActivity {
 	@LayoutElement
 	TextView textView;
 	
-	@BindService(alias="test", classType=TestService.class)
+	@ConnectService(alias="test", classType=TestService.class)
 	ITestService service;
 	
 //	@OnServiceConnect(alias="test")

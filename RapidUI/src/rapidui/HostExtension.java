@@ -19,7 +19,7 @@ import java.util.concurrent.Executor;
 
 import rapidui.RapidTask.OnStatusChangedListener;
 import rapidui.RapidTask.Status;
-import rapidui.annotation.BindService;
+import rapidui.annotation.ConnectService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
 import rapidui.annotation.Font;
@@ -29,6 +29,7 @@ import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
+import rapidui.annotation.SearchBar;
 import rapidui.annotation.SystemService;
 import rapidui.annotation.event.On;
 import rapidui.annotation.event.OnAfterTextChanged;
@@ -44,6 +45,8 @@ import rapidui.annotation.event.OnItemLongClick;
 import rapidui.annotation.event.OnKey;
 import rapidui.annotation.event.OnLongClick;
 import rapidui.annotation.event.OnMenuItemClick;
+import rapidui.annotation.event.OnQueryTextChange;
+import rapidui.annotation.event.OnQueryTextSubmit;
 import rapidui.annotation.event.OnScroll;
 import rapidui.annotation.event.OnScrollStateChanged;
 import rapidui.annotation.event.OnServiceConnect;
@@ -64,6 +67,8 @@ import rapidui.event.OnItemLongClickRegistrar;
 import rapidui.event.OnKeyRegistrar;
 import rapidui.event.OnLongClickRegistrar;
 import rapidui.event.OnMenuItemClickHostEvent;
+import rapidui.event.OnQueryTextChangeHostEvent;
+import rapidui.event.OnQueryTextSubmitHostEvent;
 import rapidui.event.OnScrollRegistrar;
 import rapidui.event.OnServiceConnectHostEvent;
 import rapidui.event.OnServiceDisconnectHostEvent;
@@ -81,6 +86,7 @@ import rapidui.resource.IntegerLoader;
 import rapidui.resource.ResourceLoader;
 import rapidui.resource.StringLoader;
 import rapidui.util.KeyValueEntry;
+import rapidui.util.SparseArray2;
 import rapidui.util.SparseArray3;
 import rapidui.util.SparseArray4;
 import android.accounts.AccountManager;
@@ -125,6 +131,7 @@ import android.os.PowerManager;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
+import android.support.v4.view.MenuItemCompat;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.SparseArray;
@@ -138,14 +145,18 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
+import android.widget.SearchView;
+import android.widget.SearchView.OnQueryTextListener;
 import android.widget.TextView;
 
 public abstract class HostExtension {
 	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
 	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
+	private static Class<?>[] argsQueryTextChange = argsServiceConnect;
+	private static Class<?>[] argsQueryTextSubmit = argsServiceConnect;
 	
-	private SparseArray<EventHandlerInfo> menuItemClickHandlers;
+	private SparseArray2<Integer, EventHandlerInfo> hostEventHandlers;
 	
 	private static class AutoEventName {
 		public String target;
@@ -425,6 +436,10 @@ public abstract class HostExtension {
 	public static final int HOST_EVENT_SERVICE_CONNECT = 1;
 	public static final int HOST_EVENT_SERVICE_DISCONNECT = 2;
 	public static final int HOST_EVENT_GLOBAL_LAYOUT = 3;
+	public static final int HOST_EVENT_QUERY_TEXT_CHANGE = 4;
+	public static final int HOST_EVENT_QUERY_TEXT_SUBMIT = 5;
+	
+	protected static final int HOST_EVENT_USER = 100;
 	
 	private static HashMap<Class<?>, SimpleEventRegistrar> simpleEventRegistrars;
 	private static HashMap<Class<?>, HostEventInfo> hostEvents;
@@ -470,6 +485,8 @@ public abstract class HostExtension {
 		hostEvents.put(OnServiceConnect.class, new OnServiceConnectHostEvent());
 		hostEvents.put(OnServiceDisconnect.class, new OnServiceDisconnectHostEvent());
 		hostEvents.put(OnGlobalLayout.class, new OnGlobalLayoutHostEvent());
+		hostEvents.put(OnQueryTextChange.class, new OnQueryTextChangeHostEvent());
+		hostEvents.put(OnQueryTextSubmit.class, new OnQueryTextSubmitHostEvent());
 	}
 
 	private static void initAnnotationNameMatchList() {
@@ -731,7 +748,7 @@ public abstract class HostExtension {
 		return currentLifecycle;
 	}
 
-	private void injectBindService(final Field field, BindService bindService) {
+	private void injectBindService(final Field field, ConnectService bindService) {
 		// Get stub class
 		
 		Class<?> stubClass = null;
@@ -905,7 +922,7 @@ public abstract class HostExtension {
 				}
 				
 				// @BindService
-				final BindService bindService = field.getAnnotation(BindService.class);
+				final ConnectService bindService = field.getAnnotation(ConnectService.class);
 				if (bindService != null) {
 					injectBindService(field, bindService);
 				}
@@ -1071,6 +1088,9 @@ public abstract class HostExtension {
 		}
 		for (String category: receiver.category()) {
 			filter.addCategory(category);
+		}
+		for (String scheme: receiver.dataScheme()) {
+			filter.addDataScheme(scheme);
 		}
 		
 		final String[] extraKeys = receiver.extra();
@@ -1376,22 +1396,35 @@ public abstract class HostExtension {
 			break;
 			
 		case HOST_EVENT_MENU_ITEM_CLICK:
+		case HOST_EVENT_QUERY_TEXT_CHANGE:
+		case HOST_EVENT_QUERY_TEXT_SUBMIT:
 			if (id == null) break;
-
-			if (menuItemClickHandlers == null) {
-				menuItemClickHandlers = new SparseArray<EventHandlerInfo>();
-			}
 			
-			final ArgumentMapper argMatcher = new ArgumentMapper(argsMenuItemClick, method);
-			menuItemClickHandlers.put((Integer) id,
-					new EventHandlerInfo(method, argMatcher));
+			Class<?>[] args = null;
+			if (type == HOST_EVENT_MENU_ITEM_CLICK) {
+				args = argsMenuItemClick;
+			} else if (type == HOST_EVENT_QUERY_TEXT_CHANGE) {
+				args = argsQueryTextChange;
+			} else if (type == HOST_EVENT_QUERY_TEXT_SUBMIT) {
+				args = argsQueryTextSubmit;
+			}
+
+			final ArgumentMapper argMatcher = new ArgumentMapper(args, method);
+			putHostEventHandler(type, (Integer) id, new EventHandlerInfo(method, argMatcher));
 			
 			break;
 		}
 	}
 
-	private EventHandlerInfo getMenuItemClickHandler(int id) {
-		return (menuItemClickHandlers == null ? null : menuItemClickHandlers.get(id));
+	protected EventHandlerInfo getHostEventHandler(int type, int id) {
+		return (hostEventHandlers == null ? null : hostEventHandlers.get(type, id));
+	}
+	
+	protected void putHostEventHandler(int type, int id, EventHandlerInfo info) {
+		if (hostEventHandlers == null) {
+			hostEventHandlers = SparseArray2.create();
+		}
+		hostEventHandlers.put(type, id, info);
 	}
 	
 	public void registerListeners(Lifecycle lifecycle) {
@@ -1595,15 +1628,12 @@ public abstract class HostExtension {
 		if (singletonTasks == null) {
 			singletonTasks = new HashMap<String, SingletonTaskInfo>();
 		} else {
-			final TaskInfo taskInfo = singletonTasks.get(name);
+			final TaskInfo taskInfo = singletonTasks.remove(name);
 			if (taskInfo != null) {
 				// Cancel previous running task if exists.
 				
-				HashSet<TaskInfo> set = tasks.get(taskInfo.lifecycle);
-				if (set != null) {
-					set.remove(taskInfo);
-				}
-				taskInfo.task.cancel(false);
+				removeTask(taskInfo);
+				taskInfo.task.cancel(true);
 			}
 		}
 		
@@ -1620,12 +1650,22 @@ public abstract class HostExtension {
 			public void onStatusChanged(Status status) {
 				if (status != Status.FINISHED) return;
 				
-				removeTask(lifecycle, task);
-				singletonTasks.remove(name);
+				removeSingletonTask(taskInfo);
+				removeTask(taskInfo);
 			}
 		});
 		
 		task.executeOnExecutor(exec, params);
+	}
+	
+	public void cancelSingletonTask(String name) {
+		if (singletonTasks == null) return;
+
+		final SingletonTaskInfo taskInfo = singletonTasks.remove(name);
+		if (taskInfo == null) return;
+		
+		removeTask(taskInfo);
+		taskInfo.task.cancel(true);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -1661,6 +1701,20 @@ public abstract class HostExtension {
 		}
 
 		set.add(taskInfo);
+	}
+	
+	private void removeSingletonTask(SingletonTaskInfo taskInfo) {
+		final TaskInfo ti = singletonTasks.get(taskInfo.name);
+		if (ti.equals(taskInfo)) {
+			singletonTasks.remove(taskInfo.name);
+		}
+	}
+
+	private void removeTask(TaskInfo taskInfo) {
+		final HashSet<TaskInfo> set = tasks.get(taskInfo.lifecycle);
+		if (set != null) {
+			set.remove(taskInfo);
+		}
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -1702,7 +1756,7 @@ public abstract class HostExtension {
 				singletonTasks.remove(sti.name);
 			}
 			
-			taskInfo.task.cancel(false);
+			taskInfo.task.cancel(true);
 		}
 
 		set.clear();
@@ -1711,7 +1765,7 @@ public abstract class HostExtension {
 	public boolean onOptionsItemSelected(MenuItem item) {
 		final int id = item.getItemId();
 		if (id != 0) {
-			final EventHandlerInfo info = getMenuItemClickHandler(id);
+			final EventHandlerInfo info = getHostEventHandler(HOST_EVENT_MENU_ITEM_CLICK, id);
 			if (info != null) {
 				try {
 					info.method.setAccessible(true);
@@ -1730,29 +1784,169 @@ public abstract class HostExtension {
 	}
 	
 	protected abstract String getHostNamePostFix();
-
+	
 	public void injectOptionsMenu(MenuInflater inflater, Menu menu) {
 		final Resources res = activity.getResources();
-		final Class<?> cls = memberContainer.getClass();
+		
+		SearchBar sb = null;
+		
+		Class<?> cls = memberContainer.getClass();
+		
+		while (cls != null && !isRapidClass(cls)) {
+			final OptionsMenu optionsMenu = cls.getAnnotation(OptionsMenu.class);
+			if (optionsMenu != null) {
+				int id = optionsMenu.value();
+				if (id == 0) {
+					final String packageName = activity.getPackageName();
+					final String postfix = getHostNamePostFix();
+					
+					String name = cls.getSimpleName();
+					if (name.length() > 8 && name.endsWith(postfix)) {
+						name = ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - postfix.length()));
+					} else {
+						name = ResourceUtils.toLowerUnderscored(name);
+					}
 
-		final OptionsMenu optionsMenu = cls.getAnnotation(OptionsMenu.class);
-		if (optionsMenu != null) {
-			int id = optionsMenu.value();
-			if (id == 0) {
-				final String packageName = activity.getPackageName();
-				final String postfix = getHostNamePostFix();
-				
-				String name = cls.getSimpleName();
-				if (name.length() > 8 && name.endsWith(postfix)) {
-					name = ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - postfix.length()));
-				} else {
-					name = ResourceUtils.toLowerUnderscored(name);
+					id = res.getIdentifier(name, "menu", packageName);
 				}
 
-				id = res.getIdentifier(name, "menu", packageName);
+				inflater.inflate(id, menu);
+			}
+			
+			if (sb == null) {
+				sb = cls.getAnnotation(SearchBar.class);
 			}
 
-			inflater.inflate(id, menu);
+			cls = cls.getSuperclass();
+		}
+		
+		// SearchBar
+		
+		if (sb != null) {
+			int id = sb.value() | sb.id();
+			if (id != 0) {
+				final MenuItem item = menu.findItem(id);
+				if (item != null) {
+					String hint = sb.hint();
+					if (TextUtils.isEmpty(hint)) {
+						final int hintId = sb.hintId();
+						if (hintId == 0) {
+							hint = null;
+						} else {
+							hint = res.getString(hintId);
+						}
+					}
+					
+					if (Build.VERSION.SDK_INT >= 11) {
+						SearchView sv = (SearchView) item.getActionView();
+						if (sv == null) {
+							sv = new SearchView(activity);
+							item.setActionView(sv);
+						}
+						
+						if (hint != null) {
+							sv.setQueryHint(hint);
+						}
+						
+						final EventHandlerInfo event1 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
+						final EventHandlerInfo event2 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
+
+						if (event1 != null || event2 != null) {
+							sv.setOnQueryTextListener(new OnQueryTextListener() {
+								@Override
+								public boolean onQueryTextSubmit(String query) {
+									if (event2 == null) return false;
+
+									try {
+										event2.method.setAccessible(true);
+										return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
+									} catch (IllegalAccessException e) {
+										e.printStackTrace();
+									} catch (IllegalArgumentException e) {
+										e.printStackTrace();
+									} catch (InvocationTargetException e) {
+										e.printStackTrace();
+									}
+									
+									return false;
+								}
+								
+								@Override
+								public boolean onQueryTextChange(String newText) {
+									if (event1 == null) return false;
+									
+									try {
+										event1.method.setAccessible(true);
+										return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
+									} catch (IllegalAccessException e) {
+										e.printStackTrace();
+									} catch (IllegalArgumentException e) {
+										e.printStackTrace();
+									} catch (InvocationTargetException e) {
+										e.printStackTrace();
+									}
+									
+									return false;
+								}
+							});
+						}
+					} else {
+						android.support.v7.widget.SearchView sv = (android.support.v7.widget.SearchView)
+								MenuItemCompat.getActionView(item);
+						if (sv == null) {
+							sv = new android.support.v7.widget.SearchView(activity);
+							item.setActionView(sv);
+						}
+						
+						if (hint != null) {
+							sv.setQueryHint(hint);
+						}
+						
+						final EventHandlerInfo event1 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
+						final EventHandlerInfo event2 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
+
+						if (event1 != null || event2 != null) {
+							sv.setOnQueryTextListener(new android.support.v7.widget.SearchView.OnQueryTextListener() {
+								@Override
+								public boolean onQueryTextSubmit(String query) {
+									if (event2 == null) return false;
+
+									try {
+										event2.method.setAccessible(true);
+										return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
+									} catch (IllegalAccessException e) {
+										e.printStackTrace();
+									} catch (IllegalArgumentException e) {
+										e.printStackTrace();
+									} catch (InvocationTargetException e) {
+										e.printStackTrace();
+									}
+									
+									return false;
+								}
+								
+								@Override
+								public boolean onQueryTextChange(String newText) {
+									if (event1 == null) return false;
+									
+									try {
+										event1.method.setAccessible(true);
+										return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
+									} catch (IllegalAccessException e) {
+										e.printStackTrace();
+									} catch (IllegalArgumentException e) {
+										e.printStackTrace();
+									} catch (InvocationTargetException e) {
+										e.printStackTrace();
+									}
+									
+									return false;
+								}
+							});
+						}
+					}
+				}
+			}
 		}
 	}
 }
