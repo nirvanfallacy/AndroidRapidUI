@@ -2,60 +2,38 @@ package rapidui;
 
 import java.util.concurrent.Executor;
 
-import android.app.Activity;
-import android.app.Fragment;
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
 
-public class RapidFragment extends Fragment {
-	private FragmentExtension ext;
+public class RapidSupport4Activity extends FragmentActivity {
+	private ActivityExtension ext = new ActivityExtension(this);
 	
 	@Override
-	public void onAttach(Activity activity) {
-		super.onAttach(activity);
-		ext = new FragmentExtension(activity, this, new FragmentHost(this));
-	}
-	
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
+	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		ext.setCurrentLifecycle(Lifecycle.CREATE);
 		ext.injectCommonThings();
-
+		ext.injectActivity();
+		
 		if (savedInstanceState != null) {
 			ext.restoreInstanceStates(savedInstanceState);
 		}
-
+		
 		ext.registerReceivers(Lifecycle.CREATE);
 	}
 	
 	@Override
-	public View onCreateView(LayoutInflater inflater, ViewGroup container,
-			Bundle savedInstanceState) {
-
-		return ext.injectFragment(inflater, container);
-	}
-	
-	@Override
-	public void onActivityCreated(Bundle savedInstanceState) {
-		super.onActivityCreated(savedInstanceState);
-		ext.injectViews();
-		ext.registerListenersToCurrentLifecycle();
-	}
-
-	@Override
-	public void onSaveInstanceState(Bundle outState) {
+	protected void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
 		ext.saveInstanceStates(outState);
 	}
 	
 	@Override
-	public void onDestroy() {
+	protected void onDestroy() {
 		ext.unbindServices();
 		ext.unregisterListeners(Lifecycle.CREATE);
 		ext.unregisterReceivers(Lifecycle.CREATE);
@@ -64,7 +42,7 @@ public class RapidFragment extends Fragment {
 	}
 	
 	@Override
-	public void onStart() {
+	protected void onStart() {
 		super.onStart();
 		ext.setCurrentLifecycle(Lifecycle.START);
 		ext.registerListeners(Lifecycle.START);
@@ -72,7 +50,7 @@ public class RapidFragment extends Fragment {
 	}
 	
 	@Override
-	public void onStop() {
+	protected void onStop() {
 		super.onStop();
 		ext.setCurrentLifecycle(Lifecycle.CREATE);
 		ext.unregisterListeners(Lifecycle.START);
@@ -81,7 +59,7 @@ public class RapidFragment extends Fragment {
 	}
 	
 	@Override
-	public void onResume() {
+	protected void onResume() {
 		super.onResume();
 		ext.setCurrentLifecycle(Lifecycle.RESUME);
 		ext.registerListeners(Lifecycle.RESUME);
@@ -89,7 +67,7 @@ public class RapidFragment extends Fragment {
 	}
 	
 	@Override
-	public void onPause() {
+	protected void onPause() {
 		super.onPause();
 		ext.setCurrentLifecycle(Lifecycle.START);
 		ext.unregisterListeners(Lifecycle.RESUME);
@@ -98,9 +76,36 @@ public class RapidFragment extends Fragment {
 	}
 	
 	@Override
-	public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-		super.onCreateOptionsMenu(menu, inflater);
-		ext.injectOptionsMenu(inflater, menu);
+	public void setContentView(int layoutResID) {
+		ext.unregisterAllListeners();
+		super.setContentView(layoutResID);
+		ext.setCustomTitleBarId();
+		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
+	}
+	
+	@Override
+	public void setContentView(View view) {
+		ext.unregisterAllListeners();
+		super.setContentView(view);
+		ext.setCustomTitleBarId();
+		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
+	}
+	
+	@Override
+	public void setContentView(View view, LayoutParams params) {
+		ext.unregisterAllListeners();
+		super.setContentView(view, params);
+		ext.setCustomTitleBarId();
+		ext.injectViews();
+		ext.registerListenersToCurrentLifecycle();
+	}
+	
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		ext.injectOptionsMenu(getMenuInflater(), menu);
+		return super.onCreateOptionsMenu(menu);
 	}
 	
 	@Override

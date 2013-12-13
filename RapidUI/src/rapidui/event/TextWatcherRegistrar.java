@@ -5,7 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
-import rapidui.annotation.Lifecycle;
+import rapidui.Lifecycle;
 import rapidui.annotation.event.OnAfterTextChanged;
 import rapidui.annotation.event.OnBeforeTextChanged;
 import rapidui.annotation.event.OnTextChanged;

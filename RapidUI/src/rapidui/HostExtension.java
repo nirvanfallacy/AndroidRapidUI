@@ -25,7 +25,6 @@ import rapidui.annotation.Extra;
 import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
 import rapidui.annotation.LayoutElement;
-import rapidui.annotation.Lifecycle;
 import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
@@ -591,8 +590,8 @@ public abstract class HostExtension {
 	protected static boolean isRapidClass(Class<?> cls) {
 		return cls.equals(RapidActivity.class) ||
 				cls.equals(RapidFragment.class) ||
-				cls.equals(RapidSupportActivity.class) ||
-				cls.equals(RapidSupportFragment.class);
+				cls.equals(RapidSupport4Activity.class) ||
+				cls.equals(RapidSupport4Fragment.class);
 	}
 	private static boolean parseAutoEventName(Method method, AutoEventName out) {
 		final String name = method.getName();

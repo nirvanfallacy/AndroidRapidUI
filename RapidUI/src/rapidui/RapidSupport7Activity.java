@@ -2,15 +2,14 @@ package rapidui;
 
 import java.util.concurrent.Executor;
 
-import rapidui.annotation.Lifecycle;
 import android.os.Bundle;
-import android.support.v4.app.FragmentActivity;
+import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 
-public class RapidSupportActivity extends FragmentActivity {
+public class RapidSupport7Activity extends ActionBarActivity {
 	private ActivityExtension ext = new ActivityExtension(this);
 	
 	@Override

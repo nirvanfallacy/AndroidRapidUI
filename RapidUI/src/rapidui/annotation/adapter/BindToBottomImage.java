@@ -1,15 +1,12 @@
-package rapidui.annotation.event;
+package rapidui.annotation.adapter;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import rapidui.Lifecycle;
-
-@Target({ElementType.METHOD})
+@Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface OnTextChanged {
+public @interface BindToBottomImage {
 	public int[] value();
-	public Lifecycle lifecycle() default Lifecycle.CREATE;
 }

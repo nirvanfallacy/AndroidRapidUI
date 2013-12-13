@@ -13,7 +13,8 @@ import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import rapidui.adapter.AsyncMethodDataBinder;
-import rapidui.adapter.CheckViewBinder;
+import rapidui.adapter.CheckedViewBinder;
+import rapidui.adapter.CompoundImageViewBinder;
 import rapidui.adapter.ConstDataBinder;
 import rapidui.adapter.DataBinder;
 import rapidui.adapter.EnabledViewBinder;
@@ -27,19 +28,27 @@ import rapidui.adapter.RatingReadOnlyViewBinder;
 import rapidui.adapter.RatingStepSizeViewBinder;
 import rapidui.adapter.RatingViewBinder;
 import rapidui.adapter.StaticConstDataBinder;
+import rapidui.adapter.TextOffViewBinder;
+import rapidui.adapter.TextOnViewBinder;
 import rapidui.adapter.TextViewBinder;
 import rapidui.adapter.ViewBinder;
 import rapidui.annotation.AdapterItem;
+import rapidui.annotation.adapter.BindToBottomImage;
 import rapidui.annotation.adapter.BindToChecked;
 import rapidui.annotation.adapter.BindToEnabled;
 import rapidui.annotation.adapter.BindToImage;
+import rapidui.annotation.adapter.BindToLeftImage;
 import rapidui.annotation.adapter.BindToProgress;
 import rapidui.annotation.adapter.BindToProgressMax;
 import rapidui.annotation.adapter.BindToRating;
 import rapidui.annotation.adapter.BindToRatingNumStars;
 import rapidui.annotation.adapter.BindToRatingReadOnly;
 import rapidui.annotation.adapter.BindToRatingStepSize;
+import rapidui.annotation.adapter.BindToRightImage;
 import rapidui.annotation.adapter.BindToText;
+import rapidui.annotation.adapter.BindToTextOff;
+import rapidui.annotation.adapter.BindToTextOn;
+import rapidui.annotation.adapter.BindToTopImage;
 import rapidui.annotation.adapter.OnBindToView;
 import rapidui.util.SparseArray2;
 import android.content.Context;
@@ -115,7 +124,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		
 		viewBinders.put(BindToText.class, new TextViewBinder());
 		viewBinders.put(BindToImage.class, new ImageViewBinder());
-		viewBinders.put(BindToChecked.class, new CheckViewBinder());
+		viewBinders.put(BindToChecked.class, new CheckedViewBinder());
 		viewBinders.put(BindToEnabled.class, new EnabledViewBinder());
 		viewBinders.put(BindToProgress.class, new ProgressViewBinder());
 		viewBinders.put(BindToProgressMax.class, new ProgressMaxViewBinder());
@@ -123,6 +132,12 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		viewBinders.put(BindToRatingNumStars.class, new RatingNumStarsViewBinder());
 		viewBinders.put(BindToRatingReadOnly.class, new RatingReadOnlyViewBinder());
 		viewBinders.put(BindToRatingStepSize.class, new RatingStepSizeViewBinder());
+		viewBinders.put(BindToTextOn.class, new TextOnViewBinder());
+		viewBinders.put(BindToTextOff.class, new TextOffViewBinder());
+		viewBinders.put(BindToLeftImage.class, new CompoundImageViewBinder(CompoundImageViewBinder.DIRECTION_LEFT));
+		viewBinders.put(BindToTopImage.class, new CompoundImageViewBinder(CompoundImageViewBinder.DIRECTION_TOP));
+		viewBinders.put(BindToRightImage.class, new CompoundImageViewBinder(CompoundImageViewBinder.DIRECTION_RIGHT));
+		viewBinders.put(BindToBottomImage.class, new CompoundImageViewBinder(CompoundImageViewBinder.DIRECTION_BOTTOM));
 	}
 
 	private static boolean hasZeroId(int[] ids) {

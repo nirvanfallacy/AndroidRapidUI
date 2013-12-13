@@ -5,7 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import rapidui.annotation.Lifecycle;
+import rapidui.Lifecycle;
 
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

@@ -5,7 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
-import rapidui.annotation.Lifecycle;
+import rapidui.Lifecycle;
 
 public class CustomEventRegistrar extends UnregisterableEventRegistrar {
 	@Override

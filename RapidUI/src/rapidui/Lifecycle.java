@@ -1,4 +1,4 @@
-package rapidui.annotation;
+package rapidui;
 
 public enum Lifecycle {
 	CREATE(0),

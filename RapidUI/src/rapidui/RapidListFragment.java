@@ -3,7 +3,7 @@ package rapidui;
 import java.util.concurrent.Executor;
 
 import android.app.Activity;
-import android.app.Fragment;
+import android.app.ListFragment;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -12,7 +12,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
-public class RapidFragment extends Fragment {
+public class RapidListFragment extends ListFragment {
 	private FragmentExtension ext;
 	
 	@Override

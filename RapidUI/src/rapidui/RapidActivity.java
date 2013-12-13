@@ -2,7 +2,6 @@ package rapidui;
 
 import java.util.concurrent.Executor;
 
-import rapidui.annotation.Lifecycle;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
