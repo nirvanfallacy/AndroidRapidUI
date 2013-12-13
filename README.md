@@ -1,7 +1,7 @@
 Introduction
 ============
 
-Simplify your code related to UI and other unnecessarily repetitive jobs.
+Simplify your code by automating annoyingly repetitive jobs.
 
 Features
 ========
@@ -20,7 +20,7 @@ Example
 Before
 ------
 
-```javascript
+```java
 public class MainActivity extends Activity {
 	TextView textOut;
 	Button buttonOk;
@@ -55,7 +55,7 @@ public class MainActivity extends Activity {
 After
 -----
 
-```javascript
+```java
 @Layout
 public class MainActivity extends RapidActivity {
 	@LayoutElement TextView textOut;
