@@ -5,22 +5,25 @@ import java.util.regex.Pattern;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.util.Log;
 
 public class ResourceUtils {
-	private static final Pattern patternCamelCaseStart = Pattern.compile("(_?|[A-Z]*)[A-Z]");
+	private static final Pattern patternEndsWidthNumber = Pattern.compile("_?[0-9]+$");
 	
 	public static String toLowerUnderscored(String s) {
-		final Matcher m = patternCamelCaseStart.matcher(s);
+		String postfix = "";
 		
-		while (m.find()) {
-			Log.d("asdf", "group = " + m.group());
+		Matcher m = patternEndsWidthNumber.matcher(s);
+		if (m.find()) {
+			final String str = m.group();
+			if (str.charAt(0) == '_') {
+				postfix = str;
+			} else {
+				postfix = '_' + str;
+			}
+			
+			s = s.substring(0, s.length() - str.length());
 		}
-		
-		return null;
-	}
-	
-	/*public static String toLowerUnderscored(String s) {
+
 		final int STATE_NONE = 0;
 		final int STATE_UPPER_CASE = 1;
 		final int STATE_LOWER_CASE = 2;
@@ -88,8 +91,9 @@ public class ResourceUtils {
 			}
 		}
 		
+		sb.append(postfix);
 		return sb.toString();
-	}*/
+	}
 
 	public static int findResourceId(Context context, String name, String type) {
 		final Resources res = context.getResources();

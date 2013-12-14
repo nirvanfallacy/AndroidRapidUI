@@ -8,9 +8,10 @@ public class UnitTest extends android.test.AndroidTestCase {
 		assertEquals("underlined_camel_case", ResourceUtils.toLowerUnderscored("Underlined_Camel_Case"));
 		assertEquals("xml_document", ResourceUtils.toLowerUnderscored("XMLDocument"));
 		assertEquals("simple_xml_parser", ResourceUtils.toLowerUnderscored("SimpleXMLParser"));
-		assertEquals("ab123", ResourceUtils.toLowerUnderscored("AB123"));
-		assertEquals("ab123", ResourceUtils.toLowerUnderscored("ab123"));
-		assertEquals("a_b123", ResourceUtils.toLowerUnderscored("aB123"));
+		assertEquals("ab_123", ResourceUtils.toLowerUnderscored("AB123"));
+		assertEquals("ab_123", ResourceUtils.toLowerUnderscored("ab123"));
+		assertEquals("a_b_123", ResourceUtils.toLowerUnderscored("aB123"));
 		assertEquals("html4_document", ResourceUtils.toLowerUnderscored("HTML4Document"));
+		assertEquals("text_view_1", ResourceUtils.toLowerUnderscored("textView1"));
 	}
 }
