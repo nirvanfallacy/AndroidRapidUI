@@ -90,6 +90,7 @@ import rapidui.util.SparseArray2;
 import rapidui.util.SparseArray3;
 import rapidui.util.SparseArray4;
 import android.accounts.AccountManager;
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
@@ -135,6 +136,7 @@ import android.os.Vibrator;
 import android.os.storage.StorageManager;
 import android.print.PrintManager;
 import android.support.v4.view.MenuItemCompat;
+import android.support.v7.app.ActionBarActivity;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.SparseArray;
@@ -159,6 +161,9 @@ public abstract class HostExtension {
 	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
 	private static Class<?>[] argsQueryTextChange = argsServiceConnect;
 	private static Class<?>[] argsQueryTextSubmit = argsServiceConnect;
+	
+	private static boolean support4lib = true;
+	private static boolean support7lib = true;
 	
 	private SparseArray2<Integer, EventHandlerInfo> hostEventHandlers;
 	
@@ -609,10 +614,33 @@ public abstract class HostExtension {
 	}
 	
 	protected static boolean isRapidClass(Class<?> cls) {
-		return cls.equals(RapidActivity.class) ||
-				cls.equals(RapidFragment.class) ||
-				cls.equals(RapidSupport4Activity.class) ||
-				cls.equals(RapidSupport4Fragment.class);
+		if (cls.equals(RapidActivity.class) ||
+				cls.equals(RapidFragment.class)) {
+			
+			return true;
+		}
+		
+		if (support4lib) {
+			try {
+				if (cls.equals(RapidSupport4Activity.class)) {
+					return true;
+				}
+			} catch (NoClassDefFoundError e) {
+				support4lib = false;
+			}
+		}
+		
+		if (support7lib) {
+			try {
+				if (cls.equals(RapidSupport4Fragment.class)) {
+					return true;
+				}
+			} catch (NoClassDefFoundError e) {
+				support7lib = false;
+			}
+		}
+		
+		return false;
 	}
 	private static boolean parseAutoEventName(Method method, AutoEventName out) {
 		final String name = method.getName();
@@ -1844,7 +1872,10 @@ public abstract class HostExtension {
 					if (Build.VERSION.SDK_INT >= 11) {
 						SearchView sv = (SearchView) item.getActionView();
 						if (sv == null) {
-							sv = new SearchView(activity);
+							final ActionBar actionBar = activity.getActionBar();
+							final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
+							
+							sv = new SearchView(context);
 							item.setActionView(sv);
 						}
 						
@@ -1898,7 +1929,16 @@ public abstract class HostExtension {
 						android.support.v7.widget.SearchView sv = (android.support.v7.widget.SearchView)
 								MenuItemCompat.getActionView(item);
 						if (sv == null) {
-							sv = new android.support.v7.widget.SearchView(activity);
+							final android.support.v7.app.ActionBar actionBar;
+							if (activity instanceof ActionBarActivity) {
+								actionBar = ((ActionBarActivity) activity).getSupportActionBar();
+							} else {
+								actionBar = null;
+							}
+							
+							final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
+							
+							sv = new android.support.v7.widget.SearchView(context);
 							item.setActionView(sv);
 						}
 						

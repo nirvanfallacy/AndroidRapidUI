@@ -28,7 +28,7 @@ import android.widget.ListView;
 
 @Layout
 @OptionsMenu
-@SearchBar(R.id.action_search)
+@SearchBar(id=R.id.action_search, hint="Search an app")
 public class MainActivity extends RapidListActivity {
 	private RapidAdapter adapter;
 	private List<AppInfo> appList;
@@ -94,13 +94,19 @@ public class MainActivity extends RapidListActivity {
 
 	@OnQueryTextChange(R.id.action_search)
 	boolean searchApp(String s) {
-		filterKeyword = s.trim();
+		s = s.trim();
 		
-		if (TextUtils.isEmpty(filterKeyword)) {
-			adapter.clear();
-			adapter.addAll(appList);
-			return true;
+		if (TextUtils.isEmpty(s)) {
+			if (TextUtils.isEmpty(filterKeyword)) {
+				return true;
+			} else {
+				adapter.clear();
+				adapter.addAll(appList);
+				return true;
+			}
 		}
+
+		filterKeyword = s;
 		
 		final String keyword = filterKeyword.toLowerCase(Locale.US);
 		final int lastPosition = getListView().getFirstVisiblePosition();

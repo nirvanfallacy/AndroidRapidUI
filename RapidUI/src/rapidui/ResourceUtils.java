@@ -1,10 +1,26 @@
 package rapidui;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import android.content.Context;
 import android.content.res.Resources;
+import android.util.Log;
 
 public class ResourceUtils {
+	private static final Pattern patternCamelCaseStart = Pattern.compile("(_?|[A-Z]*)[A-Z]");
+	
 	public static String toLowerUnderscored(String s) {
+		final Matcher m = patternCamelCaseStart.matcher(s);
+		
+		while (m.find()) {
+			Log.d("asdf", "group = " + m.group());
+		}
+		
+		return null;
+	}
+	
+	/*public static String toLowerUnderscored(String s) {
 		final int STATE_NONE = 0;
 		final int STATE_UPPER_CASE = 1;
 		final int STATE_LOWER_CASE = 2;
@@ -73,7 +89,7 @@ public class ResourceUtils {
 		}
 		
 		return sb.toString();
-	}
+	}*/
 
 	public static int findResourceId(Context context, String name, String type) {
 		final Resources res = context.getResources();
