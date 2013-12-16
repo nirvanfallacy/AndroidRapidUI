@@ -48,7 +48,7 @@ import rapidui.annotation.event.OnMenuItemClick;
 import rapidui.annotation.event.OnQueryTextChange;
 import rapidui.annotation.event.OnQueryTextSubmit;
 import rapidui.annotation.event.OnScroll;
-import rapidui.annotation.event.OnScrollStateChanged;
+import rapidui.annotation.event.OnScrollStateChange;
 import rapidui.annotation.event.OnServiceConnect;
 import rapidui.annotation.event.OnServiceDisconnect;
 import rapidui.annotation.event.OnTextChanged;
@@ -482,7 +482,7 @@ public abstract class HostExtension {
 		
 		final OnScrollRegistrar scrollRegistrar = new OnScrollRegistrar();
 		simpleEventRegistrars.put(OnScroll.class, scrollRegistrar);
-		simpleEventRegistrars.put(OnScrollStateChanged.class, scrollRegistrar);
+		simpleEventRegistrars.put(OnScrollStateChange.class, scrollRegistrar);
 	}
 	
 	private static void ensureHostEventList() {

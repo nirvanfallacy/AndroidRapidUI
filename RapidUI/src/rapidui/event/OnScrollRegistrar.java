@@ -7,7 +7,7 @@ import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
 import rapidui.annotation.event.OnScroll;
-import rapidui.annotation.event.OnScrollStateChanged;
+import rapidui.annotation.event.OnScrollStateChange;
 import android.widget.AbsListView;
 import android.widget.NumberPicker;
 
@@ -20,8 +20,8 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 	public int[] getTargetIds(Annotation annotation) {
 		if (annotation instanceof OnScroll) {
 			return ((OnScroll) annotation).value();
-		} else if (annotation instanceof OnScrollStateChanged) {
-			return ((OnScrollStateChanged) annotation).value();
+		} else if (annotation instanceof OnScrollStateChange) {
+			return ((OnScrollStateChange) annotation).value();
 		} else {
 			return null;
 		}
@@ -33,7 +33,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 		
 		if (instance instanceof AbsListView) {
 			final Method onScroll = methods.get(OnScroll.class);
-			final Method onScrollStateChanged = methods.get(OnScrollStateChanged.class);
+			final Method onScrollStateChanged = methods.get(OnScrollStateChange.class);
 			
 			final ArgumentMapper amScroll = new ArgumentMapper(argsScroll_AbsListView, onScroll);
 			final ArgumentMapper amScrollStateChanged = new ArgumentMapper(argsScrollStateChanged_AbsListView, onScrollStateChanged);
@@ -74,7 +74,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 				}
 			};
 		} else if (instance instanceof NumberPicker) {
-			final Method onScrollStateChanged = methods.get(OnScrollStateChanged.class);
+			final Method onScrollStateChanged = methods.get(OnScrollStateChange.class);
 			final ArgumentMapper amScrollStateChanged = new ArgumentMapper(argsScrollStateChanged_NumberPicker, onScrollStateChanged);
 			
 			return new NumberPicker.OnScrollListener() {
