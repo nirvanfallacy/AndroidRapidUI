@@ -2,7 +2,7 @@ package rapidui.event;
 
 import java.lang.annotation.Annotation;
 
-import rapidui.HostExtension;
+import rapidui.RapidAspect;
 import rapidui.annotation.event.OnQueryTextChange;
 import rapidui.util.IntegerArrayIterable;
 
@@ -14,6 +14,6 @@ public class OnQueryTextChangeHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return HostExtension.HOST_EVENT_QUERY_TEXT_CHANGE;
+		return RapidAspect.HOST_EVENT_QUERY_TEXT_CHANGE;
 	}
 }

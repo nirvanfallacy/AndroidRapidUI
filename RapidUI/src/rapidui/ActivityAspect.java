@@ -9,10 +9,10 @@ import android.content.res.Resources;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class ActivityExtension extends HostExtension {
+class ActivityAspect extends RapidAspect {
 	private int customTitleBar;
 	
-	public ActivityExtension(Activity activity) {
+	public ActivityAspect(Activity activity) {
 		super(activity, activity, new ActivityHost(activity));
 		customTitleBar = 0;
 	}

@@ -2,7 +2,7 @@ package rapidui;
 
 import java.lang.reflect.Method;
 
-public class EventHandlerInfo {
+class EventHandlerInfo {
 	public Method method;
 	public ArgumentMapper argMatcher;
 	

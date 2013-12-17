@@ -155,7 +155,7 @@ import android.widget.SearchView;
 import android.widget.SearchView.OnQueryTextListener;
 import android.widget.TextView;
 
-public abstract class HostExtension {
+public abstract class RapidAspect {
 	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
 	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
@@ -760,7 +760,7 @@ public abstract class HostExtension {
 	private HashMap<String, SingletonTaskInfo> singletonTasks;
 	private HashMap<TaskLifecycle, HashSet<TaskInfo>> tasks;
 	
-	public HostExtension(Activity activity, Object memberContainer, Host viewFinder) {
+	public RapidAspect(Activity activity, Object memberContainer, Host viewFinder) {
 		this.activity = activity;
 		this.memberContainer = memberContainer;
 		this.host = viewFinder;

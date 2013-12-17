@@ -3,7 +3,7 @@ package rapidui;
 import android.app.Activity;
 import android.view.View;
 
-public class ActivityHost extends Host {
+class ActivityHost extends Host {
 	private Activity activity;
 	
 	public ActivityHost(Activity activity) {

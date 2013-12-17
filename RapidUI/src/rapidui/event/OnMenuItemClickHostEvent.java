@@ -2,7 +2,7 @@ package rapidui.event;
 
 import java.lang.annotation.Annotation;
 
-import rapidui.HostExtension;
+import rapidui.RapidAspect;
 import rapidui.annotation.event.OnMenuItemClick;
 import rapidui.util.IntegerArrayIterable;
 
@@ -14,6 +14,6 @@ public class OnMenuItemClickHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return HostExtension.HOST_EVENT_MENU_ITEM_CLICK;
+		return RapidAspect.HOST_EVENT_MENU_ITEM_CLICK;
 	}
 }

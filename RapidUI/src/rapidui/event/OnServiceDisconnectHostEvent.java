@@ -4,7 +4,7 @@ import java.lang.annotation.Annotation;
 import java.util.Arrays;
 
 import android.content.Context;
-import rapidui.HostExtension;
+import rapidui.RapidAspect;
 import rapidui.annotation.event.OnServiceDisconnect;
 
 public class OnServiceDisconnectHostEvent extends HostEventInfo {
@@ -15,7 +15,7 @@ public class OnServiceDisconnectHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return HostExtension.HOST_EVENT_SERVICE_DISCONNECT;
+		return RapidAspect.HOST_EVENT_SERVICE_DISCONNECT;
 	}
 
 	@Override

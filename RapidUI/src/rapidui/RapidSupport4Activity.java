@@ -11,171 +11,171 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.Toast;
 
 public class RapidSupport4Activity extends FragmentActivity {
-	private ActivityExtension ext;
+	private ActivityAspect aspect;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
-		ext = new ActivityExtension(this);
-		ext.setCurrentLifecycle(Lifecycle.CREATE);
-		ext.injectCommonThings();
-		ext.injectActivity();
+		aspect = new ActivityAspect(this);
+		aspect.setCurrentLifecycle(Lifecycle.CREATE);
+		aspect.injectCommonThings();
+		aspect.injectActivity();
 		
 		if (savedInstanceState != null) {
-			ext.restoreInstanceStates(savedInstanceState);
+			aspect.restoreInstanceStates(savedInstanceState);
 		}
 		
-		ext.registerReceivers(Lifecycle.CREATE);
+		aspect.registerReceivers(Lifecycle.CREATE);
 	}
 	
 	@Override
 	protected void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		ext.saveInstanceStates(outState);
+		aspect.saveInstanceStates(outState);
 	}
 	
 	@Override
 	protected void onDestroy() {
-		ext.unbindServices();
-		ext.unregisterListeners(Lifecycle.CREATE);
-		ext.unregisterReceivers(Lifecycle.CREATE);
-		ext.cancelTasks(TaskLifecycle.CANCEL_ON_DESTROY);
+		aspect.unbindServices();
+		aspect.unregisterListeners(Lifecycle.CREATE);
+		aspect.unregisterReceivers(Lifecycle.CREATE);
+		aspect.cancelTasks(TaskLifecycle.CANCEL_ON_DESTROY);
 		super.onDestroy();
 	}
 	
 	@Override
 	protected void onStart() {
 		super.onStart();
-		ext.setCurrentLifecycle(Lifecycle.START);
-		ext.registerListeners(Lifecycle.START);
-		ext.registerReceivers(Lifecycle.START);
+		aspect.setCurrentLifecycle(Lifecycle.START);
+		aspect.registerListeners(Lifecycle.START);
+		aspect.registerReceivers(Lifecycle.START);
 	}
 	
 	@Override
 	protected void onStop() {
 		super.onStop();
-		ext.setCurrentLifecycle(Lifecycle.CREATE);
-		ext.unregisterListeners(Lifecycle.START);
-		ext.unregisterReceivers(Lifecycle.START);
-		ext.cancelTasks(TaskLifecycle.CANCEL_ON_STOP);
+		aspect.setCurrentLifecycle(Lifecycle.CREATE);
+		aspect.unregisterListeners(Lifecycle.START);
+		aspect.unregisterReceivers(Lifecycle.START);
+		aspect.cancelTasks(TaskLifecycle.CANCEL_ON_STOP);
 	}
 	
 	@Override
 	protected void onResume() {
 		super.onResume();
-		ext.setCurrentLifecycle(Lifecycle.RESUME);
-		ext.registerListeners(Lifecycle.RESUME);
-		ext.registerReceivers(Lifecycle.RESUME);
+		aspect.setCurrentLifecycle(Lifecycle.RESUME);
+		aspect.registerListeners(Lifecycle.RESUME);
+		aspect.registerReceivers(Lifecycle.RESUME);
 	}
 	
 	@Override
 	protected void onPause() {
 		super.onPause();
-		ext.setCurrentLifecycle(Lifecycle.START);
-		ext.unregisterListeners(Lifecycle.RESUME);
-		ext.unregisterReceivers(Lifecycle.RESUME);
-		ext.cancelTasks(TaskLifecycle.CANCEL_ON_PAUSE);
+		aspect.setCurrentLifecycle(Lifecycle.START);
+		aspect.unregisterListeners(Lifecycle.RESUME);
+		aspect.unregisterReceivers(Lifecycle.RESUME);
+		aspect.cancelTasks(TaskLifecycle.CANCEL_ON_PAUSE);
 	}
 	
 	@Override
 	public void setContentView(int layoutResID) {
-		ext.unregisterAllListeners();
+		aspect.unregisterAllListeners();
 		super.setContentView(layoutResID);
-		ext.setCustomTitleBarId();
-		ext.injectViews();
-		ext.registerListenersToCurrentLifecycle();
+		aspect.setCustomTitleBarId();
+		aspect.injectViews();
+		aspect.registerListenersToCurrentLifecycle();
 	}
 	
 	@Override
 	public void setContentView(View view) {
-		ext.unregisterAllListeners();
+		aspect.unregisterAllListeners();
 		super.setContentView(view);
-		ext.setCustomTitleBarId();
-		ext.injectViews();
-		ext.registerListenersToCurrentLifecycle();
+		aspect.setCustomTitleBarId();
+		aspect.injectViews();
+		aspect.registerListenersToCurrentLifecycle();
 	}
 	
 	@Override
 	public void setContentView(View view, LayoutParams params) {
-		ext.unregisterAllListeners();
+		aspect.unregisterAllListeners();
 		super.setContentView(view, params);
-		ext.setCustomTitleBarId();
-		ext.injectViews();
-		ext.registerListenersToCurrentLifecycle();
+		aspect.setCustomTitleBarId();
+		aspect.injectViews();
+		aspect.registerListenersToCurrentLifecycle();
 	}
 	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		ext.injectOptionsMenu(getMenuInflater(), menu);
+		aspect.injectOptionsMenu(getMenuInflater(), menu);
 		return super.onCreateOptionsMenu(menu);
 	}
 	
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-		return (ext.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
+		return (aspect.onOptionsItemSelected(item) ? true : super.onOptionsItemSelected(item));
 	}
 	
 	@Override
 	public void onLowMemory() {
 		super.onLowMemory();
-		ext.collect();
+		aspect.collect();
 	}
 
 	@SuppressWarnings("unchecked")
 	public <Progress> void executeSingleton(String name, RapidTask<Progress, ?> task, Progress... params) {
-		ext.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, RapidTask.sDefaultExecutor, task, params);
+		aspect.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, RapidTask.sDefaultExecutor, task, params);
 	}
 	
 	@SuppressWarnings("unchecked")
 	public <Progress> void executeSingleton(String name, Executor exec,
 			RapidTask<Progress, ?> task, Progress... params) {
 		
-		ext.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, exec, task, params);
+		aspect.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, exec, task, params);
 	}
 
 	@SuppressWarnings("unchecked")
 	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name,
 			final RapidTask<Progress, ?> task, Progress... params) {
 		
-		ext.executeSingleton(lifecycle, name, RapidTask.sDefaultExecutor, task, params);
+		aspect.executeSingleton(lifecycle, name, RapidTask.sDefaultExecutor, task, params);
 	}
 	
 	@SuppressWarnings("unchecked")
 	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
 			final RapidTask<Progress, ?> task, Progress... params) {
 
-		ext.executeSingleton(lifecycle, name, exec, task, params);
+		aspect.executeSingleton(lifecycle, name, exec, task, params);
 	}
 
 	@SuppressWarnings("unchecked")
 	public <Progress> void execute(final RapidTask<Progress, ?> task, Progress... params) {
-		ext.execute(TaskLifecycle.CANCEL_ON_DESTROY, RapidTask.sDefaultExecutor, task, params);
+		aspect.execute(TaskLifecycle.CANCEL_ON_DESTROY, RapidTask.sDefaultExecutor, task, params);
 	}
 	
 	@SuppressWarnings("unchecked")
 	public <Progress> void execute(Executor exec,
 			final RapidTask<Progress, ?> task, Progress... params) {
 		
-		ext.execute(TaskLifecycle.CANCEL_ON_DESTROY, exec, task, params);
+		aspect.execute(TaskLifecycle.CANCEL_ON_DESTROY, exec, task, params);
 	}
 
 	@SuppressWarnings("unchecked")
 	public <Progress> void execute(final TaskLifecycle lifecycle, 
 			final RapidTask<Progress, ?> task, Progress... params) {
 		
-		ext.execute(lifecycle, RapidTask.sDefaultExecutor, task, params);
+		aspect.execute(lifecycle, RapidTask.sDefaultExecutor, task, params);
 	}
 	
 	@SuppressWarnings("unchecked")
 	public <Progress> void execute(final TaskLifecycle lifecycle, Executor exec,
 			final RapidTask<Progress, ?> task, Progress... params) {
 		
-		ext.execute(lifecycle, exec, task, params);
+		aspect.execute(lifecycle, exec, task, params);
 	}
 	
 	public void cancelSingletonTask(String name) {
-		ext.cancelSingletonTask(name);
+		aspect.cancelSingletonTask(name);
 	}
 	
 	public void toast(String text) {

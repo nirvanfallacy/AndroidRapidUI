@@ -8,8 +8,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-public class FragmentExtension extends HostExtension {
-	public FragmentExtension(Activity activity, Object memberContainer, Host host) {
+class FragmentAspect extends RapidAspect {
+	public FragmentAspect(Activity activity, Object memberContainer, Host host) {
 		super(activity, memberContainer, host);
 	}
 	

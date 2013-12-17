@@ -2,7 +2,7 @@ package rapidui;
 
 import rapidui.event.UnregisterableEventRegistrar;
 
-public class UnregisterableEventHandler {
+class UnregisterableEventHandler {
 	public UnregisterableEventRegistrar registrar;
 	public Object target;
 	public Object dispatcher;
