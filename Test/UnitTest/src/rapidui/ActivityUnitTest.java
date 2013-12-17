@@ -190,32 +190,4 @@ public class ActivityUnitTest extends SingleLaunchActivityTestCase<TestActivity>
 		
 		assertEquals("asdf", result);
 	}
-	
-	public void testTaskGetCanceled() {
-		RapidTask<String, String> task = new RapidTask<String, String>() {
-			@Override
-			protected String doInBackground(String... params) throws Exception {
-				return null;
-			}
-			
-			@Override
-			protected void onCancelled() {
-				dummyBoolean = true;
-			}
-		};
-		
-		dummyBoolean = false;
-		task.execute();
-		task.cancel(false);
-
-		try {
-			task.get(WaitStrategy.WAIT_EVEN_IF_CANCELED);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		} catch (ExecutionException e) {
-			e.printStackTrace();
-		}
-		
-		assertTrue(dummyBoolean);
-	}
 }

@@ -30,6 +30,20 @@ public class SparseArray2<TKey2, TValue> implements Iterable<Entry<Integer, Hash
 		return map2.get(key2);
 	}
 	
+	public TValue remove(int key1, TKey2 key2) {
+		final HashMap<TKey2, TValue> map2 = map.get(key1);
+		if (map2 == null) {
+			return null;
+		}
+		
+		final TValue v = map2.remove(key2);
+		if (v != null && map2.isEmpty()) {
+			map.remove(key1);
+		}
+		
+		return v;
+	}
+	
 	@Override
 	public Iterator<Entry<Integer, HashMap<TKey2, TValue>>> iterator() {
 		return new Iterator<Map.Entry<Integer, HashMap<TKey2, TValue>>>() {

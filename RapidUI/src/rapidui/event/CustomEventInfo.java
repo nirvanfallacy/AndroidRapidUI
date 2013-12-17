@@ -8,6 +8,10 @@ import java.util.HashMap;
 import rapidui.ArgumentMapper;
 
 public class CustomEventInfo {
+	private static Method methodEquals;
+	private static Method methodToString;
+	private static Method methodHashCode;
+	
 	private Method adder;
 	private Class<?> listenerType;
 	
@@ -25,7 +29,7 @@ public class CustomEventInfo {
 	}
 	
 	public Object createProxy(final Object memberContainer, final HashMap<String, Method> delegates) {
-		final HashMap<Method, ArgumentMapper> argMatchers = new HashMap<Method, ArgumentMapper>();
+		final HashMap<Method, ArgumentMapper> argMappers = new HashMap<Method, ArgumentMapper>();
 		
 		final InvocationHandler invocationHandler = new InvocationHandler() {
 			@Override
@@ -42,18 +46,26 @@ public class CustomEventInfo {
 				}
 				
 				final Method delegate = delegates.get(eventName);
-
-				ArgumentMapper am = argMatchers.get(method);
-				if (am == null) {
-					am = new ArgumentMapper(method.getParameterTypes(), delegate);
-					argMatchers.put(method, am);
-				}
 				
 				if (delegate != null) {
+					ArgumentMapper am = argMappers.get(method);
+					if (am == null) {
+						am = new ArgumentMapper(method.getParameterTypes(), delegate);
+						argMappers.put(method, am);
+					}
+
 					delegate.setAccessible(true);
 					return delegate.invoke(memberContainer, am.match(args));
 				} else {
-					return method.invoke(proxy, args);
+					if (isEquals(method)) {
+						return proxy == args[0];
+					} else if (isHashCode(method)) {
+						return delegates.hashCode();
+					} else if (isToString(method)) {
+						return "CustomEventInfo$Proxy@" + delegates.hashCode();
+					} else {
+						throw new NoSuchMethodException(method.getName());
+					}
 				}
 			}
 		};
@@ -105,5 +117,38 @@ public class CustomEventInfo {
 		} else {
 			return new UnregisterableCustomEventInfo(adder, remover, listenerTypeAdder);
 		}
+	}
+	
+	private static boolean isEquals(Method method) {
+		if (methodEquals == null) {
+			try {
+				methodEquals = Object.class.getMethod("equals", Object.class);
+			} catch (NoSuchMethodException e) {
+			}
+		}
+		
+		return method.equals(methodEquals);
+	}
+	
+	private static boolean isHashCode(Method method) {
+		if (methodHashCode == null) {
+			try {
+				methodHashCode = Object.class.getMethod("hashCode");
+			} catch (NoSuchMethodException e) {
+			}
+		}
+		
+		return method.equals(methodHashCode);
+	}
+
+	private static boolean isToString(Method method) {
+		if (methodToString == null) {
+			try {
+				methodToString = Object.class.getMethod("toString");
+			} catch (NoSuchMethodException e) {
+			}
+		}
+		
+		return method.equals(methodToString);
 	}
 }

@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import android.app.ProgressDialog;
 import android.os.AsyncTask;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.util.Log;
@@ -193,10 +192,8 @@ public abstract class RapidTask<Params, Result> {
     private final WorkerRunnable<Params, Result> mWorker;
     private final FutureTask<Result> mFuture;
     
-    private volatile Status mStatus = Status.PENDING;
-    
+    private volatile  Status mStatus = Status.PENDING;
     private final AtomicBoolean mCancelled = new AtomicBoolean();
-
     private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
     private ProgressDialog pd;
@@ -488,49 +485,33 @@ public abstract class RapidTask<Params, Result> {
     }
 
     public final Result get(WaitStrategy strategy) throws InterruptedException, ExecutionException {
-    	Result result;
-    	
     	try {
-    		result = mFuture.get();
+    		return mFuture.get();
     	} catch (CancellationException e) {
     		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
    				mutex.acquire();
     			mutex.release();
-    			result = null;
+    			return null;
     		} else {
     			throw e;
     		}
     	}
-    	
-    	if (Thread.currentThread().equals(Looper.getMainLooper().getThread())) {
-    		finish(result);
-    	}
-    	
-    	return result;
     }
 
     public final Result get(WaitStrategy strategy, long timeout, TimeUnit unit) throws InterruptedException,
 	    	ExecutionException, TimeoutException {
     	
-    	Result result;
-    	
     	try {
-    		result = mFuture.get(timeout, unit);
+    		return mFuture.get(timeout, unit);
     	} catch (CancellationException e) {
     		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
    				mutex.acquire();
     			mutex.release();
-    			result = null;
+    			return null;
     		} else {
     			throw e;
     		}
     	}
-    	
-    	if (Thread.currentThread().equals(Looper.getMainLooper().getThread())) {
-    		finish(result);
-    	}
-    	
-    	return result;
 	}
 
     /**

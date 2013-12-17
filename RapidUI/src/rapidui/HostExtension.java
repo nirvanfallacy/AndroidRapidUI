@@ -1452,6 +1452,10 @@ public abstract class HostExtension {
 		return (hostEventHandlers == null ? null : hostEventHandlers.get(type, id));
 	}
 	
+	protected EventHandlerInfo removeHostEventHandler(int type, int id) {
+		return (hostEventHandlers == null ? null : hostEventHandlers.remove(type, id));
+	}
+	
 	protected void putHostEventHandler(int type, int id, EventHandlerInfo info) {
 		if (hostEventHandlers == null) {
 			hostEventHandlers = SparseArray2.create();
@@ -1855,139 +1859,143 @@ public abstract class HostExtension {
 		// SearchBar
 		
 		if (sb != null) {
-			int id = sb.value() | sb.id();
-			if (id != 0) {
-				final MenuItem item = menu.findItem(id);
-				if (item != null) {
-					String hint = sb.hint();
-					if (TextUtils.isEmpty(hint)) {
-						final int hintId = sb.hintId();
-						if (hintId == 0) {
-							hint = null;
-						} else {
-							hint = res.getString(hintId);
-						}
+			initSearchBar(menu, res, sb);
+		}
+	}
+	
+	private void initSearchBar(Menu menu, Resources res, SearchBar sb) {
+		int id = sb.value() | sb.id();
+		if (id != 0) {
+			final MenuItem item = menu.findItem(id);
+			if (item != null) {
+				String hint = sb.hint();
+				if (TextUtils.isEmpty(hint)) {
+					final int hintId = sb.hintId();
+					if (hintId == 0) {
+						hint = null;
+					} else {
+						hint = res.getString(hintId);
+					}
+				}
+				
+				if (Build.VERSION.SDK_INT >= 11) {
+					SearchView sv = (SearchView) item.getActionView();
+					if (sv == null) {
+						final ActionBar actionBar = activity.getActionBar();
+						final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
+						
+						sv = new SearchView(context);
+						item.setActionView(sv);
 					}
 					
-					if (Build.VERSION.SDK_INT >= 11) {
-						SearchView sv = (SearchView) item.getActionView();
-						if (sv == null) {
-							final ActionBar actionBar = activity.getActionBar();
-							final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
-							
-							sv = new SearchView(context);
-							item.setActionView(sv);
-						}
-						
-						if (hint != null) {
-							sv.setQueryHint(hint);
-						}
-						
-						final EventHandlerInfo event1 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
-						final EventHandlerInfo event2 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
+					if (hint != null) {
+						sv.setQueryHint(hint);
+					}
+					
+					final EventHandlerInfo event1 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
+					final EventHandlerInfo event2 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
 
-						if (event1 != null || event2 != null) {
-							sv.setOnQueryTextListener(new OnQueryTextListener() {
-								@Override
-								public boolean onQueryTextSubmit(String query) {
-									if (event2 == null) return false;
+					if (event1 != null || event2 != null) {
+						sv.setOnQueryTextListener(new OnQueryTextListener() {
+							@Override
+							public boolean onQueryTextSubmit(String query) {
+								if (event2 == null) return false;
 
-									try {
-										event2.method.setAccessible(true);
-										return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
-									} catch (IllegalAccessException e) {
-										e.printStackTrace();
-									} catch (IllegalArgumentException e) {
-										e.printStackTrace();
-									} catch (InvocationTargetException e) {
-										e.printStackTrace();
-									}
-									
-									return false;
+								try {
+									event2.method.setAccessible(true);
+									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
+								} catch (IllegalAccessException e) {
+									e.printStackTrace();
+								} catch (IllegalArgumentException e) {
+									e.printStackTrace();
+								} catch (InvocationTargetException e) {
+									e.printStackTrace();
 								}
 								
-								@Override
-								public boolean onQueryTextChange(String newText) {
-									if (event1 == null) return false;
-									
-									try {
-										event1.method.setAccessible(true);
-										return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
-									} catch (IllegalAccessException e) {
-										e.printStackTrace();
-									} catch (IllegalArgumentException e) {
-										e.printStackTrace();
-									} catch (InvocationTargetException e) {
-										e.printStackTrace();
-									}
-									
-									return false;
-								}
-							});
-						}
-					} else {
-						android.support.v7.widget.SearchView sv = (android.support.v7.widget.SearchView)
-								MenuItemCompat.getActionView(item);
-						if (sv == null) {
-							final android.support.v7.app.ActionBar actionBar;
-							if (activity instanceof ActionBarActivity) {
-								actionBar = ((ActionBarActivity) activity).getSupportActionBar();
-							} else {
-								actionBar = null;
+								return false;
 							}
 							
-							final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
-							
-							sv = new android.support.v7.widget.SearchView(context);
-							item.setActionView(sv);
-						}
-						
-						if (hint != null) {
-							sv.setQueryHint(hint);
-						}
-						
-						final EventHandlerInfo event1 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
-						final EventHandlerInfo event2 = getHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
-
-						if (event1 != null || event2 != null) {
-							sv.setOnQueryTextListener(new android.support.v7.widget.SearchView.OnQueryTextListener() {
-								@Override
-								public boolean onQueryTextSubmit(String query) {
-									if (event2 == null) return false;
-
-									try {
-										event2.method.setAccessible(true);
-										return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
-									} catch (IllegalAccessException e) {
-										e.printStackTrace();
-									} catch (IllegalArgumentException e) {
-										e.printStackTrace();
-									} catch (InvocationTargetException e) {
-										e.printStackTrace();
-									}
-									
-									return false;
+							@Override
+							public boolean onQueryTextChange(String newText) {
+								if (event1 == null) return false;
+								
+								try {
+									event1.method.setAccessible(true);
+									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
+								} catch (IllegalAccessException e) {
+									e.printStackTrace();
+								} catch (IllegalArgumentException e) {
+									e.printStackTrace();
+								} catch (InvocationTargetException e) {
+									e.printStackTrace();
 								}
 								
-								@Override
-								public boolean onQueryTextChange(String newText) {
-									if (event1 == null) return false;
-									
-									try {
-										event1.method.setAccessible(true);
-										return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
-									} catch (IllegalAccessException e) {
-										e.printStackTrace();
-									} catch (IllegalArgumentException e) {
-										e.printStackTrace();
-									} catch (InvocationTargetException e) {
-										e.printStackTrace();
-									}
-									
-									return false;
-								}
-							});
+								return false;
+							}
+						});
+					}
+				} else {
+					android.support.v7.widget.SearchView sv = (android.support.v7.widget.SearchView)
+							MenuItemCompat.getActionView(item);
+					if (sv == null) {
+						final android.support.v7.app.ActionBar actionBar;
+						if (activity instanceof ActionBarActivity) {
+							actionBar = ((ActionBarActivity) activity).getSupportActionBar();
+						} else {
+							actionBar = null;
 						}
+						
+						final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
+						
+						sv = new android.support.v7.widget.SearchView(context);
+						item.setActionView(sv);
+					}
+					
+					if (hint != null) {
+						sv.setQueryHint(hint);
+					}
+					
+					final EventHandlerInfo event1 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
+					final EventHandlerInfo event2 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
+
+					if (event1 != null || event2 != null) {
+						sv.setOnQueryTextListener(new android.support.v7.widget.SearchView.OnQueryTextListener() {
+							@Override
+							public boolean onQueryTextSubmit(String query) {
+								if (event2 == null) return false;
+
+								try {
+									event2.method.setAccessible(true);
+									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
+								} catch (IllegalAccessException e) {
+									e.printStackTrace();
+								} catch (IllegalArgumentException e) {
+									e.printStackTrace();
+								} catch (InvocationTargetException e) {
+									e.printStackTrace();
+								}
+								
+								return false;
+							}
+							
+							@Override
+							public boolean onQueryTextChange(String newText) {
+								if (event1 == null) return false;
+								
+								try {
+									event1.method.setAccessible(true);
+									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
+								} catch (IllegalAccessException e) {
+									e.printStackTrace();
+								} catch (IllegalArgumentException e) {
+									e.printStackTrace();
+								} catch (InvocationTargetException e) {
+									e.printStackTrace();
+								}
+								
+								return false;
+							}
+						});
 					}
 				}
 			}
