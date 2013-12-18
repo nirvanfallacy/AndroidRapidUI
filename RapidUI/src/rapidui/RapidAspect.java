@@ -1657,9 +1657,8 @@ public abstract class RapidAspect {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
+			final RapidTask<?> task, Object... params) {
 
 		if (singletonTasks == null) {
 			singletonTasks = new HashMap<String, SingletonTaskInfo>();
@@ -1704,9 +1703,8 @@ public abstract class RapidAspect {
 		taskInfo.task.cancel(true);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final TaskLifecycle lifecycle, Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final TaskLifecycle lifecycle, Executor exec,
+			final RapidTask<?> task, Object... params) {
 
 		final TaskInfo taskInfo = new TaskInfo();
 		taskInfo.lifecycle = lifecycle;

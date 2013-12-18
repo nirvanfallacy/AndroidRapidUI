@@ -6,5 +6,5 @@
 	<classpathentry kind="lib" path="extlibs/android-support-v4.jar"/>
 	<classpathentry kind="lib" path="extlibs/android-support-v7-appcompat.jar"/>
 	<classpathentry exported="true" kind="con" path="com.android.ide.eclipse.adt.LIBRARIES"/>
-	<classpathentry kind="output" path="bin"/>
+	<classpathentry kind="output" path="bin/classes"/>
 </classpath>

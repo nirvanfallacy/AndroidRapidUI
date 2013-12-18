@@ -11,6 +11,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 public class RapidListFragment extends ListFragment {
 	private FragmentAspect aspect;
@@ -114,55 +115,63 @@ public class RapidListFragment extends ListFragment {
 		aspect.collect();
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(String name, RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(String name, RapidTask<?> task, Object... params) {
 		aspect.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(String name, Executor exec,
-			RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(String name, Executor exec,
+			RapidTask<?> task, Object... params) {
 		
 		aspect.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, exec, task, params);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(final TaskLifecycle lifecycle, final String name,
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.executeSingleton(lifecycle, name, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
+			final RapidTask<?> task, Object... params) {
 
 		aspect.executeSingleton(lifecycle, name, exec, task, params);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final RapidTask<?> task, Object... params) {
 		aspect.execute(TaskLifecycle.CANCEL_ON_DESTROY, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(Executor exec,
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.execute(TaskLifecycle.CANCEL_ON_DESTROY, exec, task, params);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final TaskLifecycle lifecycle, 
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final TaskLifecycle lifecycle, 
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.execute(lifecycle, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final TaskLifecycle lifecycle, Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final TaskLifecycle lifecycle, Executor exec,
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.execute(lifecycle, exec, task, params);
+	}
+	
+	public void cancelSingletonTask(String name) {
+		aspect.cancelSingletonTask(name);
+	}
+
+	public void toast(String text) {
+		Toast.makeText(getActivity(), text, Toast.LENGTH_SHORT).show();
+	}
+	
+	public void toast(String text, int duration) {
+		Toast.makeText(getActivity(), text, duration).show();
+	}
+	
+	public void toastLong(String text) {
+		Toast.makeText(getActivity(), text, Toast.LENGTH_LONG).show();
 	}
 }

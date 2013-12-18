@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-import rapidui.RapidTask.WaitStrategy;
 import rapidui.test.adapter.ListItem1;
 import rapidui.test.unittest.R;
 import android.app.Instrumentation;
@@ -24,8 +23,6 @@ import android.widget.TextView;
 
 public class ActivityUnitTest extends SingleLaunchActivityTestCase<TestActivity> {
 	private TestActivity activity;
-	
-	private boolean dummyBoolean;
 	
 	public ActivityUnitTest() {
 		super("rapidui.test.unittest", TestActivity.class);
@@ -170,10 +167,10 @@ public class ActivityUnitTest extends SingleLaunchActivityTestCase<TestActivity>
 	}
 	
 	public void testTaskGet() {
-		RapidTask<String, String> task = new RapidTask<String, String>() {
+		RapidTask<String> task = new RapidTask<String>() {
 			@Override
-			protected String doInBackground(String... params) throws Exception {
-				return params[0];
+			protected String doInBackground(Object... params) throws Exception {
+				return params[0].toString();
 			}
 		};
 		

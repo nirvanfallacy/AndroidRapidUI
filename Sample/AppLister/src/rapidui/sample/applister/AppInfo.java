@@ -5,8 +5,8 @@ import java.lang.ref.SoftReference;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
-import rapidui.AnonymousTask;
 import rapidui.Cancelable;
+import rapidui.RapidTask;
 import rapidui.adapter.AsyncCallback;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToImage;
@@ -42,9 +42,9 @@ public class AppInfo implements Comparable<AppInfo> {
 		if (d != null) {
 			callback.done(d);
 		} else {
-			new AnonymousTask<Drawable>() {
+			new RapidTask<Drawable>() {
 				@Override
-				protected Drawable doInBackground() throws Exception {
+				protected Drawable doInBackground(Object... params) throws Exception {
 					return ri.loadIcon(pm);
 				}
 				

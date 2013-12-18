@@ -121,54 +121,46 @@ public class RapidActivity extends android.app.Activity {
 		aspect.collect();
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(String name, RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(String name, RapidTask<?> task, Object... params) {
 		aspect.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(String name, Executor exec,
-			RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(String name, Executor exec,
+			RapidTask<?> task, Object... params) {
 		
 		aspect.executeSingleton(TaskLifecycle.CANCEL_ON_DESTROY, name, exec, task, params);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(final TaskLifecycle lifecycle, final String name,
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.executeSingleton(lifecycle, name, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void executeSingleton(final TaskLifecycle lifecycle, final String name, Executor exec,
+			final RapidTask<?> task, Object... params) {
 
 		aspect.executeSingleton(lifecycle, name, exec, task, params);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final RapidTask<?> task, Object... params) {
 		aspect.execute(TaskLifecycle.CANCEL_ON_DESTROY, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(Executor exec,
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.execute(TaskLifecycle.CANCEL_ON_DESTROY, exec, task, params);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final TaskLifecycle lifecycle, 
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final TaskLifecycle lifecycle, 
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.execute(lifecycle, RapidTask.sDefaultExecutor, task, params);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public <Progress> void execute(final TaskLifecycle lifecycle, Executor exec,
-			final RapidTask<Progress, ?> task, Progress... params) {
+	public void execute(final TaskLifecycle lifecycle, Executor exec,
+			final RapidTask<?> task, Object... params) {
 		
 		aspect.execute(lifecycle, exec, task, params);
 	}

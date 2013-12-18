@@ -23,7 +23,7 @@ import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 
-public abstract class RapidTask<Params, Result> {
+public abstract class RapidTask<Result> {
     private static class AsyncTaskResult<Data> {
 		@SuppressWarnings("rawtypes")
 		final RapidTask mTask;
@@ -134,8 +134,8 @@ public abstract class RapidTask<Params, Result> {
     	WAIT_EVEN_IF_CANCELED
     }
 
-    private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {
-        Params[] mParams;
+    private static abstract class WorkerRunnable<Result> implements Callable<Result> {
+        Object[] mParams;
     }
 
     private static final String LOG_TAG = "RapidTask";
@@ -189,7 +189,7 @@ public abstract class RapidTask<Params, Result> {
     public static void execute(Runnable runnable) {
         sDefaultExecutor.execute(runnable);
     }
-    private final WorkerRunnable<Params, Result> mWorker;
+    private final WorkerRunnable<Result> mWorker;
     private final FutureTask<Result> mFuture;
     
     private volatile  Status mStatus = Status.PENDING;
@@ -213,7 +213,7 @@ public abstract class RapidTask<Params, Result> {
     	threadPriority = Process.THREAD_PRIORITY_BACKGROUND;
     	mutex = new Semaphore(1);
     	
-        mWorker = new WorkerRunnable<Params, Result>() {
+        mWorker = new WorkerRunnable<Result>() {
             public Result call() throws Exception {
                 mTaskInvoked.set(true);
                 
@@ -318,8 +318,7 @@ public abstract class RapidTask<Params, Result> {
      * @see #onPostExecute
      * @see #publishProgress
      */
-    @SuppressWarnings("unchecked")
-	protected abstract Result doInBackground(Params... params) throws Exception;
+	protected abstract Result doInBackground(Object... params) throws Exception;
     
     /**
      * Executes the task with the specified parameters. The task returns
@@ -349,8 +348,7 @@ public abstract class RapidTask<Params, Result> {
      * @see #executeOnExecutor(java.util.concurrent.Executor, Object[])
      * @see #execute(Runnable)
      */
-    @SuppressWarnings("unchecked")
-	public final RapidTask<Params, Result> execute(Params... params) {
+	public final RapidTask<Result> execute(Object... params) {
         return executeOnExecutor(sDefaultExecutor, params);
     }
 
@@ -387,9 +385,8 @@ public abstract class RapidTask<Params, Result> {
      *
      * @see #execute(Object[])
      */
-    @SuppressWarnings("unchecked")
-	public final RapidTask<Params, Result> executeOnExecutor(Executor exec,
-            Params... params) {
+	public final RapidTask<Result> executeOnExecutor(Executor exec,
+            Object... params) {
         
     	if (mStatus != Status.PENDING) {
             switch (mStatus) {
@@ -660,7 +657,7 @@ public abstract class RapidTask<Params, Result> {
     	}
     }
     
-    public RapidTask<Params, Result> setThreadPriority(int priority) {
+    public RapidTask<Result> setThreadPriority(int priority) {
     	if (mStatus != Status.PENDING) {
     		Log.w(LOG_TAG, "setThreadPriority() should be called before the task executed.");
     	} else {

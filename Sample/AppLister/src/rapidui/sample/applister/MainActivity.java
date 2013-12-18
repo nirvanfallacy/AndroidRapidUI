@@ -6,10 +6,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
-import rapidui.AnonymousTask;
 import rapidui.Lifecycle;
 import rapidui.RapidAdapter;
 import rapidui.RapidListActivity;
+import rapidui.RapidTask;
 import rapidui.annotation.Layout;
 import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Receiver;
@@ -47,15 +47,15 @@ public class MainActivity extends RapidListActivity {
 	}
 
 	private void loadApps() {
-		final AnonymousTask<List<AppInfo>> task = 
-			new AnonymousTask<List<AppInfo>>() {
+		final RapidTask<List<AppInfo>> task = 
+			new RapidTask<List<AppInfo>>() {
 				@Override
 				protected ProgressDialog onCreateProgressDialog() {
 					return ProgressDialog.show(MainActivity.this, null, "Loading application list...", true, true);
 				}
 		
 				@Override
-				protected List<AppInfo> doInBackground()
+				protected List<AppInfo> doInBackground(Object... params)
 						throws Exception {
 					
 					final Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -114,10 +114,10 @@ public class MainActivity extends RapidListActivity {
 		final List<AppInfo> currentList = new ArrayList<AppInfo>();
 		currentList.addAll(appList);
 		
-		final AnonymousTask<List<AppInfo>> task =
-				new AnonymousTask<List<AppInfo>>() {
+		final RapidTask<List<AppInfo>> task =
+				new RapidTask<List<AppInfo>>() {
 					@Override
-					protected List<AppInfo> doInBackground() throws Exception {
+					protected List<AppInfo> doInBackground(Object... params) throws Exception {
 						final ArrayList<AppInfo> searchResult = new ArrayList<AppInfo>();
 						
 						for (AppInfo ai: currentList) {
