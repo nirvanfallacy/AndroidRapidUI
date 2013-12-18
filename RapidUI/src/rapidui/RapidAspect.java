@@ -1682,7 +1682,7 @@ public abstract class RapidAspect {
 		
 		task.setOnStatusChangedListener(new OnStatusChangedListener() {
 			@Override
-			public void onStatusChanged(Status status) {
+			public void onStatusChange(Status status) {
 				if (status != Status.FINISHED) return;
 				
 				removeSingletonTask(taskInfo);
@@ -1714,7 +1714,7 @@ public abstract class RapidAspect {
 		
 		task.setOnStatusChangedListener(new OnStatusChangedListener() {
 			@Override
-			public void onStatusChanged(Status status) {
+			public void onStatusChange(Status status) {
 				if (status != Status.FINISHED) return;
 				removeTask(lifecycle, task);
 			}

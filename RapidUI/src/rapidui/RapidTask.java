@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import android.app.ProgressDialog;
 import android.os.AsyncTask;
@@ -83,7 +84,7 @@ public abstract class RapidTask<Result> {
     }
     
     public interface OnStatusChangedListener {
-    	void onStatusChanged(Status status);
+    	void onStatusChange(Status status);
     }
 
     private static class SerialExecutor implements Executor {
@@ -129,10 +130,10 @@ public abstract class RapidTask<Result> {
          */
         FINISHED,
     }
-    public enum WaitStrategy {
-    	WAIT_NORMAL,
-    	WAIT_EVEN_IF_CANCELED
-    }
+    
+    public static final int WAIT_DEFAULT = 0;
+    public static final int WAIT_EVEN_IF_CANCELED = 1;
+    public static final int WAIT_AND_CALLBACK = 2;
 
     private static abstract class WorkerRunnable<Result> implements Callable<Result> {
         Object[] mParams;
@@ -175,6 +176,7 @@ public abstract class RapidTask<Result> {
     private static final int MESSAGE_SET_PROGRESS_DIALOG_PROGRESS = 6;
 
     private static final int MESSAGE_PROGRESS_DIALOG_TRANSACTION = 7;
+    
     private static final InternalHandler sHandler = new InternalHandler();
     static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
     
@@ -192,7 +194,7 @@ public abstract class RapidTask<Result> {
     private final WorkerRunnable<Result> mWorker;
     private final FutureTask<Result> mFuture;
     
-    private volatile  Status mStatus = Status.PENDING;
+    private final AtomicReference<Status> mStatus = new AtomicReference<Status>(Status.PENDING);
     private final AtomicBoolean mCancelled = new AtomicBoolean();
     private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
@@ -202,7 +204,7 @@ public abstract class RapidTask<Result> {
 
     private Semaphore mutex;
 
-    private OnStatusChangedListener onStatusChanged;
+    private OnStatusChangedListener onStatusChange;
     
     /**
      * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
@@ -388,20 +390,18 @@ public abstract class RapidTask<Result> {
 	public final RapidTask<Result> executeOnExecutor(Executor exec,
             Object... params) {
         
-    	if (mStatus != Status.PENDING) {
-            switch (mStatus) {
-            case RUNNING:
-                throw new IllegalStateException("Cannot execute task:"
-                        + " the task is already running.");
-                
-            case FINISHED:
-                throw new IllegalStateException("Cannot execute task:"
-                        + " the task has already been executed "
-                        + "(a task can be executed only once)");
+        switch (mStatus.get()) {
+        case RUNNING:
+            throw new IllegalStateException("Cannot execute task:"
+                    + " the task is already running.");
+            
+        case FINISHED:
+            throw new IllegalStateException("Cannot execute task:"
+                    + " the task has already been executed "
+                    + "(a task can be executed only once)");
 
-            default:
-				break;
-            }
+        default:
+			break;
         }
 
         pd = onCreateProgressDialog();
@@ -410,7 +410,9 @@ public abstract class RapidTask<Result> {
         }
         
         onPreExecute();
-    	setStatus(Status.RUNNING);
+        mStatus.set(Status.RUNNING);
+        
+        dispatchOnStatusChange(Status.RUNNING);
         
         try {
 			mutex.acquire();
@@ -425,8 +427,8 @@ public abstract class RapidTask<Result> {
     }
 
     private void finish(Result result) {
-    	if (mStatus == Status.FINISHED) return;
-    	setStatus(Status.FINISHED);
+    	if (mStatus.getAndSet(Status.FINISHED) == Status.FINISHED) return;
+    	dispatchOnStatusChange(Status.FINISHED);
         
     	dismissDialog();
     	
@@ -438,11 +440,17 @@ public abstract class RapidTask<Result> {
     }
     
     private void finishWithException(Exception e) {
-    	if (mStatus == Status.FINISHED) return;
-    	setStatus(Status.FINISHED);
+    	if (mStatus.getAndSet(Status.FINISHED) == Status.FINISHED) return;
+    	dispatchOnStatusChange(Status.FINISHED);
     	
     	dismissDialog();
         onException(e);
+    }
+    
+    private void dispatchOnStatusChange(Status status) {
+    	if (onStatusChange != null) {
+    		onStatusChange.onStatusChange(status);
+    	}
     }
 
     /**
@@ -457,7 +465,7 @@ public abstract class RapidTask<Result> {
      *         while waiting.
      */
     public final Result get() throws InterruptedException, ExecutionException {
-    	return get(WaitStrategy.WAIT_NORMAL);
+    	return get(WAIT_DEFAULT);
     }    
     
     /**
@@ -478,37 +486,53 @@ public abstract class RapidTask<Result> {
     public final Result get(long timeout, TimeUnit unit) throws InterruptedException,
             ExecutionException, TimeoutException {
         
-    	return get(WaitStrategy.WAIT_NORMAL, timeout, unit);
+    	return get(WAIT_DEFAULT, timeout, unit);
     }
 
-    public final Result get(WaitStrategy strategy) throws InterruptedException, ExecutionException {
-    	try {
-    		return mFuture.get();
-    	} catch (CancellationException e) {
-    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
-   				mutex.acquire();
-    			mutex.release();
-    			return null;
-    		} else {
-    			throw e;
-    		}
-    	}
-    }
-
-    public final Result get(WaitStrategy strategy, long timeout, TimeUnit unit) throws InterruptedException,
-	    	ExecutionException, TimeoutException {
+    public final Result get(int flag) throws InterruptedException, ExecutionException {
+    	Result result;
     	
     	try {
-    		return mFuture.get(timeout, unit);
+    		result = mFuture.get();
     	} catch (CancellationException e) {
-    		if (strategy == WaitStrategy.WAIT_EVEN_IF_CANCELED) {
+    		if ((flag & WAIT_EVEN_IF_CANCELED) != 0) {
    				mutex.acquire();
     			mutex.release();
-    			return null;
+    			result = null;
     		} else {
     			throw e;
     		}
     	}
+
+    	if ((flag & WAIT_AND_CALLBACK) != 0) {
+			finish(result);
+		}
+    	
+    	return result;
+    }
+
+    public final Result get(int flag, long timeout, TimeUnit unit) throws InterruptedException,
+	    	ExecutionException, TimeoutException {
+    	
+    	Result result;
+    	
+    	try {
+    		result = mFuture.get(timeout, unit);
+    	} catch (CancellationException e) {
+    		if ((flag & WAIT_EVEN_IF_CANCELED) != 0) {
+   				mutex.acquire();
+    			mutex.release();
+    			result = null;
+    		} else {
+    			throw e;
+    		}
+    	}
+
+    	if ((flag & WAIT_AND_CALLBACK) != 0) {
+			finish(result);
+		}
+    	
+    	return result;
 	}
 
     /**
@@ -517,7 +541,7 @@ public abstract class RapidTask<Result> {
      * @return The current status.
      */
     public final Status getStatus() {
-        return mStatus;
+        return mStatus.get();
     }
     
     /**
@@ -624,7 +648,7 @@ public abstract class RapidTask<Result> {
     }
     
     public void setOnStatusChangedListener(OnStatusChangedListener listener) {
-    	this.onStatusChanged = listener;
+    	this.onStatusChange = listener;
     }
     
     public void setProgress(int progress) {
@@ -648,17 +672,8 @@ public abstract class RapidTask<Result> {
     	}
     }
     
-    private void setStatus(Status newStatus) {
-    	if (mStatus == newStatus) return;
-    	
-    	mStatus = newStatus;
-    	if (onStatusChanged != null) {
-    		onStatusChanged.onStatusChanged(newStatus);
-    	}
-    }
-    
     public RapidTask<Result> setThreadPriority(int priority) {
-    	if (mStatus != Status.PENDING) {
+    	if (mStatus.get() != Status.PENDING) {
     		Log.w(LOG_TAG, "setThreadPriority() should be called before the task executed.");
     	} else {
     		this.threadPriority = priority;
