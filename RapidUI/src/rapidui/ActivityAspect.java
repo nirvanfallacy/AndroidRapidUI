@@ -1,5 +1,8 @@
 package rapidui;
 
+import java.util.ArrayList;
+
+import rapidui.annotation.Fragments;
 import rapidui.annotation.CustomTitleBar;
 import rapidui.annotation.FullScreen;
 import rapidui.annotation.Layout;
@@ -21,6 +24,7 @@ class ActivityAspect extends RapidAspect {
 		final Resources res = activity.getResources();
 		final Window w = activity.getWindow();
 		
+		ArrayList<Fragments> fragments = null;
 		boolean titleBar = false;
 		int contentView = 0;
 		
@@ -67,6 +71,8 @@ class ActivityAspect extends RapidAspect {
 				
 				contentView = id;
 			}
+			
+			// AddFragment
 			
 			cls = cls.getSuperclass();
 		}
