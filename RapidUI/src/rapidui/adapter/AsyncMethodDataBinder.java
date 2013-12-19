@@ -16,10 +16,10 @@ public class AsyncMethodDataBinder extends MethodDataBinder {
 	}
 	
 	@Override
-	public void bind(final Object instance, final View v, final Runnable callback, final Cancelable canceler) {
+	public void bind(final Object instance, final View v, final AsyncJob job) {
 		// Bind value
 		
-		final AsyncCallback getterCallback = new AsyncCallback() {
+		final AsyncResult getterCallback = new AsyncResult() {
 			@Override
 			public void done(final Object result) {
 				publish(result, true);
@@ -30,15 +30,15 @@ public class AsyncMethodDataBinder extends MethodDataBinder {
 				publish(data, false);
 			}
 			
-			private void publish(final Object data, final boolean runCallback) {
+			private void publish(final Object data, final boolean finished) {
 				final Runnable r = new Runnable() {
 					@Override
 					public void run() {
-						if (canceler != null && canceler.isCanceled()) return;
+						if (job.isDone()) return;
 						
 						viewBinder.bindValue(v, data);
-						if (runCallback && callback != null) {
-							callback.run();
+						if (finished) {
+							job.removeFromJobList();
 						}
 					}
 				};
@@ -52,13 +52,18 @@ public class AsyncMethodDataBinder extends MethodDataBinder {
 
 			@Override
 			public void done() {
-				publish(null, true);
+				job.removeFromJobList();
+			}
+
+			@Override
+			public void setCancelable(Cancelable c) {
+				job.setCancelable(c);
 			}
 		};
 		
 		getter.setAccessible(true);
 		try {
-			getter.invoke(instance, getterCallback, canceler);
+			getter.invoke(instance, getterCallback);
 		} catch (IllegalAccessException e) {
 			e.printStackTrace();
 		} catch (IllegalArgumentException e) {

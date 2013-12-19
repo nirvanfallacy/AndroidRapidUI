@@ -3,7 +3,6 @@ package rapidui.adapter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import rapidui.Cancelable;
 import rapidui.ValueCallback;
 import android.view.View;
 
@@ -30,7 +29,7 @@ public class MethodDataBinder extends DataBinder {
 	}
 
 	@Override
-	public void bind(final Object instance, View v, Runnable callback, Cancelable canceler) {
+	public void bind(final Object instance, View v, AsyncJob job) {
 		// Bind value
 
 		try {

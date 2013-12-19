@@ -2,7 +2,6 @@ package rapidui.adapter;
 
 import java.lang.reflect.Field;
 
-import rapidui.Cancelable;
 import android.view.View;
 
 public class StaticConstDataBinder extends DataBinder {
@@ -22,7 +21,7 @@ public class StaticConstDataBinder extends DataBinder {
 	}
 
 	@Override
-	public void bind(final Object instance, final View v, final Runnable callback, final Cancelable canceler) {
+	public void bind(final Object instance, final View v, final AsyncJob job) {
 		try {
 			viewBinder.bindValue(v, value);
 		} catch (Exception e) {

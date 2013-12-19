@@ -66,7 +66,7 @@ public class MainActivity extends RapidListActivity {
 	
 					final List<ResolveInfo> list = pm.queryIntentActivities(intent, 0);
 					for (ResolveInfo ri: list) {
-						if (isCancelled()) return null;
+						if (isCanceled()) return null;
 						appList.add(new AppInfo(pm, ri));
 					}
 					
@@ -121,7 +121,7 @@ public class MainActivity extends RapidListActivity {
 						final ArrayList<AppInfo> searchResult = new ArrayList<AppInfo>();
 						
 						for (AppInfo ai: currentList) {
-							if (isCancelled()) return null;
+							if (isCanceled()) return null;
 							
 							if (filterApp(ai, keyword)) {
 								searchResult.add(ai);

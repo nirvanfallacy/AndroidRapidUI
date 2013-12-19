@@ -10,9 +10,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.WeakHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
+import rapidui.adapter.AsyncJob;
 import rapidui.adapter.AsyncMethodDataBinder;
+import rapidui.adapter.AsyncResult;
 import rapidui.adapter.CheckedViewBinder;
 import rapidui.adapter.CompoundImageViewBinder;
 import rapidui.adapter.ConstDataBinder;
@@ -59,38 +60,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 
 public class RapidAdapter extends ArrayAdapter<Object> {
-	private class AsyncJob implements Cancelable, Runnable {
-		private View v;
-		private AtomicBoolean canceled;
-		
-		public AsyncJob(View v) {
-			this.v = v;
-			this.canceled = new AtomicBoolean(false);
-		}
-		
-		public void cancel() {
-			canceled.set(true);
-			synchronized (asyncJobs) {
-				asyncJobs.remove(v);
-			}
-		}
-
-		@Override
-		public boolean isCanceled() {
-			if (canceled.get()) return true;
-			synchronized (asyncJobs) {
-				return !asyncJobs.containsKey(v);
-			}
-		}
-
-		@Override
-		public void run() {
-			synchronized (asyncJobs) {
-				asyncJobs.remove(v);
-			}
-		}
-	}
-	
 	private static class ViewType {
 		public int viewType;
 		public int layoutId;
@@ -151,7 +120,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 	
 	private LayoutInflater inflater;
 	private HashMap<Class<?>, ViewType> viewTypeMap;
-	WeakHashMap<View, AsyncJob> asyncJobs;
+	private WeakHashMap<View, AsyncJob> asyncJobs;
 	
 	private SparseArray<Method> bindListeners;
 	
@@ -168,9 +137,9 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		init(classes);
 	}
 	
-	private AsyncJob getAsyncJob(View v) {
+	private AsyncJob pullAsyncJob(View v) {
 		synchronized (asyncJobs) {
-			return asyncJobs.get(v);
+			return asyncJobs.remove(v);
 		}
 	}
 	
@@ -206,7 +175,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 					final int id = constBinder.getId();
 					
 					final View v = (id == 0 ? convertView : convertView.findViewById(id));
-					constBinder.bind(item, v, null, null);
+					constBinder.bind(item, v, null);
 				}
 			}
 		}
@@ -222,20 +191,19 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				if (v == null) continue;
 			}
 
-			AsyncJob asyncJob = getAsyncJob(v);
+			AsyncJob asyncJob = pullAsyncJob(v);
 			if (asyncJob != null) {
 				asyncJob.cancel();
 			}
 			
 			if (dataBinder.isAsync()) {
-				asyncJob = new AsyncJob(v);
-				putAsyncJob(v, asyncJob);
+				asyncJob = new AsyncJob(v, asyncJobs);
 			} else {
 				asyncJob = null;
 			}
 			
 			dataBinder.unbind(v);
-			dataBinder.bind(item, v, asyncJob, asyncJob);
+			dataBinder.bind(item, v, asyncJob);
 		}
 		
 		if (bindListeners != null) {
@@ -272,7 +240,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 		ensureViewBinders();
 		
 		viewTypeMap = new HashMap<Class<?>, ViewType>();
-		asyncJobs = new WeakHashMap<View, RapidAdapter.AsyncJob>();
+		asyncJobs = new WeakHashMap<View, AsyncJob>();
 		
 		// [id][annotationType][methodBinder]
 		final SparseArray2<Class<?>, MethodDataBinder> methods = SparseArray2.create();
@@ -369,9 +337,7 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 							MethodDataBinder md;
 	
 							final Class<?>[] paramTypes = method.getParameterTypes();
-							if (paramTypes.length > 2) {
-								continue;
-							} else if (paramTypes.length == 2) {
+							if (paramTypes.length > 0 && AsyncResult.class.isAssignableFrom(paramTypes[0])) {
 								// Async getter
 								
 								md = methods.get(id, annotation.annotationType());
@@ -382,16 +348,16 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 								}
 								
 								md.setGetter(method);
-							} else {
+							} else if (paramTypes.length <= 1) {
 								// Sync getter or setter
-	
+								
 								md = methods.get(id, annotation.annotationType());
 								if (md == null) {
 									md = new MethodDataBinder(binder);
 								} else if (md instanceof AsyncMethodDataBinder) {
 									md = new MethodDataBinder(md);
 								}
-								
+
 								if (paramTypes.length == 1) {
 									// Setter
 									md.setSetter(method);
@@ -399,6 +365,8 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 									// Getter
 									md.setGetter(method);
 								}
+							} else {
+								continue;
 							}
 							
 							md.setId(id);
@@ -436,12 +404,6 @@ public class RapidAdapter extends ArrayAdapter<Object> {
 				e.printStackTrace();
 				return true;
 			}
-		}
-	}
-	
-	private void putAsyncJob(View v, AsyncJob job) {
-		synchronized (asyncJobs) {
-			asyncJobs.put(v, job);
 		}
 	}
 	
