@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
-import rapidui.Host;
 import rapidui.annotation.event.OnCreateContextMenu;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -49,10 +48,5 @@ public class OnCreateContextMenuRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((View) target).setOnCreateContextMenuListener((View.OnCreateContextMenuListener) dispatcher);
-	}
-
-	@Override
-	public Object getNonViewTarget(Host host) {
-		return null;
 	}
 }

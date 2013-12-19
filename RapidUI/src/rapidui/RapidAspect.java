@@ -1,6 +1,6 @@
 package rapidui;
 
-import static rapidui.util.Shortcuts.newHashMap;
+import static rapidui.util.Shortcuts.*;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -49,6 +49,7 @@ import rapidui.annotation.event.OnQueryTextChange;
 import rapidui.annotation.event.OnQueryTextSubmit;
 import rapidui.annotation.event.OnScroll;
 import rapidui.annotation.event.OnScrollStateChange;
+import rapidui.annotation.event.OnSensorChange;
 import rapidui.annotation.event.OnServiceConnect;
 import rapidui.annotation.event.OnServiceDisconnect;
 import rapidui.annotation.event.OnTextChanged;
@@ -70,6 +71,7 @@ import rapidui.event.OnMenuItemClickHostEvent;
 import rapidui.event.OnQueryTextChangeHostEvent;
 import rapidui.event.OnQueryTextSubmitHostEvent;
 import rapidui.event.OnScrollRegistrar;
+import rapidui.event.OnSensorChangeRegistrar;
 import rapidui.event.OnServiceConnectHostEvent;
 import rapidui.event.OnServiceDisconnectHostEvent;
 import rapidui.event.OnTouchRegistrar;
@@ -113,6 +115,9 @@ import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.hardware.ConsumerIrManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
@@ -158,9 +163,8 @@ import android.widget.TextView;
 public abstract class RapidAspect {
 	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
-	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
-	private static Class<?>[] argsQueryTextChange = argsServiceConnect;
-	private static Class<?>[] argsQueryTextSubmit = argsServiceConnect;
+	private static Class<?>[] argsSensorChange = new Class<?>[] { SensorEvent.class };
+	private static SparseArray<Class<?>[]> hostEventArguments;
 	
 	private static boolean support4lib = true;
 	private static boolean support7lib = true;
@@ -307,15 +311,8 @@ public abstract class RapidAspect {
 					addUnregEvent(id, registrar2, lifecycle, annotationType, method);
 				}
 			} else {
-				final int[] ids = registrar.getTargetViewIds(annotation);
-				if (ids != null) {
-					for (int id: ids) {
-						addEvent(id, registrar, annotationType, method);
-					}
-				}
-				
-				final Object nonViewTarget = registrar.getNonViewTarget(host);
-				if (nonViewTarget != null) {
+				for (int id: registrar.getTargetViewIds(annotation)) {
+					addEvent(id, registrar, annotationType, method);
 				}
 			}
 		}
@@ -450,6 +447,7 @@ public abstract class RapidAspect {
 	public static final int HOST_EVENT_GLOBAL_LAYOUT = 3;
 	public static final int HOST_EVENT_QUERY_TEXT_CHANGE = 4;
 	public static final int HOST_EVENT_QUERY_TEXT_SUBMIT = 5;
+	public static final int HOST_EVENT_SENSOR_CHANGE = 6;
 	
 	protected static final int HOST_EVENT_USER = 100;
 	
@@ -968,6 +966,7 @@ public abstract class RapidAspect {
 				for (Annotation annotation: method.getAnnotations()) {
 					final Class<?> annotationType = annotation.annotationType();
 
+					// @Receiver
 					if (annotationType.equals(Receiver.class)) {
 						final Receiver receiver = (Receiver) annotation;
 						if (receiver != null) {
@@ -976,6 +975,8 @@ public abstract class RapidAspect {
 						}
 						continue;
 					}
+					
+					// @EventHandler
 					
 					if (annotationType.equals(EventHandler.class)) {
 						if (autoEventName == null) {
@@ -996,6 +997,8 @@ public abstract class RapidAspect {
 						
 						continue;
 					}
+					
+					// Host events
 					
 					ensureHostEventList();
 
@@ -1420,20 +1423,44 @@ public abstract class RapidAspect {
 			
 			break;
 			
+		case HOST_EVENT_SENSOR_CHANGE:
+			final SensorManager sm = (SensorManager) activity.getSystemService(Context.SENSOR_SERVICE);
+			final ArgumentMapper am = new ArgumentMapper(argsSensorChange, method);
+			
+			final OnSensorChange sc = (OnSensorChange) annotation;
+			for (int sensorType: sc.sensorType()) {
+				final OnSensorChangeRegistrar registrar = new OnSensorChangeRegistrar(sm.getDefaultSensor(sensorType), sc.rate());
+				
+				final SensorEventListener listener = new SensorEventListener() {
+					@Override
+					public void onSensorChanged(SensorEvent event) {
+						try {
+							method.setAccessible(true);
+							method.invoke(memberContainer, am.match(event));
+						} catch (IllegalAccessException e) {
+							e.printStackTrace();
+						} catch (IllegalArgumentException e) {
+							e.printStackTrace();
+						} catch (InvocationTargetException e) {
+							e.printStackTrace();
+						}
+					}
+					
+					@Override
+					public void onAccuracyChanged(Sensor sensor, int accuracy) {
+					}
+				};
+				
+				registerUnregisterableEvent(sc.lifecycle(), registrar, sm, listener);
+			}
+			break;
+			
 		case HOST_EVENT_MENU_ITEM_CLICK:
 		case HOST_EVENT_QUERY_TEXT_CHANGE:
 		case HOST_EVENT_QUERY_TEXT_SUBMIT:
 			if (id == null) break;
 			
-			Class<?>[] args = null;
-			if (type == HOST_EVENT_MENU_ITEM_CLICK) {
-				args = argsMenuItemClick;
-			} else if (type == HOST_EVENT_QUERY_TEXT_CHANGE) {
-				args = argsQueryTextChange;
-			} else if (type == HOST_EVENT_QUERY_TEXT_SUBMIT) {
-				args = argsQueryTextSubmit;
-			}
-
+			final Class<?>[] args = getHostEventArguments(type);
 			final ArgumentMapper argMatcher = new ArgumentMapper(args, method);
 			putHostEventHandler(type, (Integer) id, new EventHandlerInfo(method, argMatcher));
 			
@@ -1449,6 +1476,21 @@ public abstract class RapidAspect {
 		return (hostEventHandlers == null ? null : hostEventHandlers.remove(type, id));
 	}
 	
+	protected static Class<?>[] getHostEventArguments(int type) {
+		if (hostEventArguments == null) {
+			initHostEventArguments();
+		}
+		return hostEventArguments.get(type);
+	}
+	
+	private static void initHostEventArguments() {
+		hostEventArguments = newSparseArray(
+				HOST_EVENT_MENU_ITEM_CLICK, new Class<?>[] { MenuItem.class },
+				HOST_EVENT_QUERY_TEXT_CHANGE, argsServiceConnect,
+				HOST_EVENT_QUERY_TEXT_SUBMIT, argsServiceConnect
+		);
+	}
+
 	protected void putHostEventHandler(int type, int id, EventHandlerInfo info) {
 		if (hostEventHandlers == null) {
 			hostEventHandlers = SparseArray2.create();
@@ -1633,6 +1675,8 @@ public abstract class RapidAspect {
 		annotationNameMatch = null;
 		systemServices = null;
 		resourceLoaders = null;
+		
+		hostEventArguments = null;
 		
 		if (typefaces != null) {
 			final Iterator<Entry<String, WeakReference<Typeface>>> it = typefaces.entrySet().iterator();

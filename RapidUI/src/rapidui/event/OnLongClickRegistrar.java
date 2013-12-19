@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
-import rapidui.Host;
 import rapidui.annotation.event.OnLongClick;
 import android.view.View;
 
@@ -47,10 +46,5 @@ public class OnLongClickRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((View) target).setOnLongClickListener((View.OnLongClickListener) dispatcher);
-	}
-
-	@Override
-	public Object getNonViewTarget(Host host) {
-		return null;
 	}
 }

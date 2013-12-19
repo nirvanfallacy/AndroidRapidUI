@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
-import rapidui.Host;
 import rapidui.annotation.event.OnDrag;
 import android.view.DragEvent;
 import android.view.View;
@@ -48,10 +47,5 @@ public class OnDragRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((View) target).setOnDragListener((View.OnDragListener) dispatcher);
-	}
-
-	@Override
-	public Object getNonViewTarget(Host host) {
-		return null;
 	}
 }

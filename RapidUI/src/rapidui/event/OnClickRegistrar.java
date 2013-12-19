@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
-import rapidui.Host;
 import rapidui.annotation.event.OnClick;
 import android.view.View;
 
@@ -45,10 +44,5 @@ public class OnClickRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((View) target).setOnClickListener((View.OnClickListener) dispatcher);
-	}
-
-	@Override
-	public Object getNonViewTarget(Host host) {
-		return null;
 	}
 }
