@@ -405,10 +405,6 @@ public abstract class RapidAspect {
 		public void injectUnregisterableEvents(SparseArray<View> viewMap) {
 			if (unregEventMap == null) return;
 				
-			if (unregEvents == null) {
-				unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
-			}
-			
 			for (Entry<Integer,
 					   HashMap<UnregisterableEventRegistrar,
 					           HashMap<Lifecycle, HashMap<Class<?>, Method>>

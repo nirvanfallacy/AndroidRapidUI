@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.view.View;
 
 class ActivityHost extends Host {
-	private Activity activity;
+	protected Activity activity;
 	
 	public ActivityHost(Activity activity) {
 		this.activity = activity;
@@ -17,5 +17,10 @@ class ActivityHost extends Host {
 
 	@Override
 	public void setHasOptionsMenu(boolean hasMenu) {
+	}
+
+	@Override
+	protected Object getFragmentManager() {
+		return activity.getFragmentManager();
 	}
 }

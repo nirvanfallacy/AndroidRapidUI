@@ -19,4 +19,9 @@ class SupportFragmentHost extends Host {
 	public void setHasOptionsMenu(boolean hasMenu) {
 		fragment.setHasOptionsMenu(hasMenu);
 	}
+
+	@Override
+	protected Object getFragmentManager() {
+		return fragment.getFragmentManager();
+	}
 }

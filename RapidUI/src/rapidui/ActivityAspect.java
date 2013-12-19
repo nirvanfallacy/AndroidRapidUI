@@ -1,5 +1,10 @@
 package rapidui;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import rapidui.annotation.AddFragment;
+import rapidui.annotation.AddFragments;
 import rapidui.annotation.CustomTitleBar;
 import rapidui.annotation.FullScreen;
 import rapidui.annotation.Layout;
@@ -21,6 +26,7 @@ class ActivityAspect extends RapidAspect {
 		final Resources res = activity.getResources();
 		final Window w = activity.getWindow();
 		
+		ArrayList<AddFragment> addFragments = null;
 		boolean titleBar = false;
 		int contentView = 0;
 		
@@ -70,11 +76,31 @@ class ActivityAspect extends RapidAspect {
 			
 			// AddFragment
 			
+			final AddFragment af = cls.getAnnotation(AddFragment.class);
+			if (af != null) {
+				if (addFragments == null) {
+					addFragments = new ArrayList<AddFragment>();
+				}
+				addFragments.add(af);
+			}
+			
+			final AddFragments afs = cls.getAnnotation(AddFragments.class);
+			if (afs != null) {
+				if (addFragments == null) {
+					addFragments = new ArrayList<AddFragment>();
+				}
+				addFragments.addAll(Arrays.asList(afs.value()));
+			}
+			
 			cls = cls.getSuperclass();
 		}
 		
 		if (contentView != 0) {
 			activity.setContentView(contentView);
+		}
+		
+		if (addFragments != null) {
+			host.addFragments(addFragments);
 		}
 	}
 
