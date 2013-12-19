@@ -1,0 +1,6 @@
+#-keep class com.nemustech.androidtest.annotation.**
+
+-keepattributes *Annotation*
+-keepclassmembers class * {
+    @rapidui.annotation.LayoutElement *;
+}
