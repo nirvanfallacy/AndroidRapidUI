@@ -26,5 +26,7 @@
     <string name="adapter_test_method_binding">Adapter test - method binding</string>
     
     <string name="adapter_test_async_method_binding">Adapter test - async method binding</string>
+    
+    <string name="sensor_test_activity">Sensor test activity</string>
 
 </resources>

@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.Lifecycle;
-import rapidui.annotation.event.OnSensorChange;
+import rapidui.annotation.event.ListenSensor;
 import android.hardware.Sensor;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
@@ -43,6 +43,6 @@ public class OnSensorChangeRegistrar extends UnregisterableEventRegistrar {
 
 	@Override
 	public Lifecycle getLifecycle(Annotation annotation) {
-		return ((OnSensorChange) annotation).lifecycle();
+		return ((ListenSensor) annotation).lifecycle();
 	}
 }

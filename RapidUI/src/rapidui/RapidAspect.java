@@ -1,6 +1,7 @@
 package rapidui;
 
-import static rapidui.util.Shortcuts.*;
+import static rapidui.util.Shortcuts.newHashMap;
+import static rapidui.util.Shortcuts.newSparseArray;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -31,6 +32,7 @@ import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
 import rapidui.annotation.SearchBar;
 import rapidui.annotation.SystemService;
+import rapidui.annotation.event.ListenSensor;
 import rapidui.annotation.event.On;
 import rapidui.annotation.event.OnAfterTextChanged;
 import rapidui.annotation.event.OnBeforeTextChanged;
@@ -71,6 +73,7 @@ import rapidui.event.OnMenuItemClickHostEvent;
 import rapidui.event.OnQueryTextChangeHostEvent;
 import rapidui.event.OnQueryTextSubmitHostEvent;
 import rapidui.event.OnScrollRegistrar;
+import rapidui.event.OnSensorChangeHostEvent;
 import rapidui.event.OnSensorChangeRegistrar;
 import rapidui.event.OnServiceConnectHostEvent;
 import rapidui.event.OnServiceDisconnectHostEvent;
@@ -112,6 +115,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.hardware.ConsumerIrManager;
@@ -497,6 +501,7 @@ public abstract class RapidAspect {
 		hostEvents.put(OnGlobalLayout.class, new OnGlobalLayoutHostEvent());
 		hostEvents.put(OnQueryTextChange.class, new OnQueryTextChangeHostEvent());
 		hostEvents.put(OnQueryTextSubmit.class, new OnQueryTextSubmitHostEvent());
+		hostEvents.put(OnSensorChange.class, new OnSensorChangeHostEvent());
 	}
 
 	private static void initAnnotationNameMatchList() {
@@ -1244,7 +1249,9 @@ public abstract class RapidAspect {
 			} else {
 				service = BluetoothAdapter.getDefaultAdapter();
 			}
-//		} else if (fieldClass.equals(DisplayManagerCompat.class)) {
+		} else if (fieldType.equals(PackageManager.class)) {
+			service = activity.getPackageManager();
+//		} else if (fieldType.equals(DisplayManagerCompat.class)) {
 //			service = DisplayManagerCompat.getInstance(activity);
 		} else {
 			initSystemServiceList();
@@ -1276,10 +1283,6 @@ public abstract class RapidAspect {
 //		// [customEvnetHandlerInfo][lifecycle][eventName] = method
 //		HashMap3<UnregisterableCustomEventHandlerInfo, Lifecycle, String, Method> unregCustomEventMap = null;
 		
-		if (unregEvents != null) {
-			unregEvents.clear();
-		}
-
 		Class<?> cls = memberContainer.getClass();
 		
 		while (cls != null && !isRapidClass(cls)) {
@@ -1428,8 +1431,9 @@ public abstract class RapidAspect {
 			final ArgumentMapper am = new ArgumentMapper(argsSensorChange, method);
 			
 			final OnSensorChange sc = (OnSensorChange) annotation;
-			for (int sensorType: sc.sensorType()) {
-				final OnSensorChangeRegistrar registrar = new OnSensorChangeRegistrar(sm.getDefaultSensor(sensorType), sc.rate());
+			for (ListenSensor ls: sc.value()) {
+				final Sensor sensor = sm.getDefaultSensor(ls.sensorType());
+				final OnSensorChangeRegistrar registrar = new OnSensorChangeRegistrar(sensor, ls.rate());
 				
 				final SensorEventListener listener = new SensorEventListener() {
 					@Override
@@ -1451,8 +1455,9 @@ public abstract class RapidAspect {
 					}
 				};
 				
-				registerUnregisterableEvent(sc.lifecycle(), registrar, sm, listener);
+				registerUnregisterableEvent(ls.lifecycle(), registrar, sm, listener);
 			}
+
 			break;
 			
 		case HOST_EVENT_MENU_ITEM_CLICK:

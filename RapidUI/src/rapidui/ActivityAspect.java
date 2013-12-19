@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import rapidui.annotation.AddFragment;
-import rapidui.annotation.AddFragments;
+import rapidui.annotation.Fragments;
 import rapidui.annotation.CustomTitleBar;
 import rapidui.annotation.FullScreen;
 import rapidui.annotation.Layout;
@@ -84,7 +84,7 @@ class ActivityAspect extends RapidAspect {
 				addFragments.add(af);
 			}
 			
-			final AddFragments afs = cls.getAnnotation(AddFragments.class);
+			final Fragments afs = cls.getAnnotation(Fragments.class);
 			if (afs != null) {
 				if (addFragments == null) {
 					addFragments = new ArrayList<AddFragment>();
