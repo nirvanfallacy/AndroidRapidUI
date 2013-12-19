@@ -27,7 +27,7 @@ public class CustomEventRegistrar extends UnregisterableEventRegistrar {
 	}
 
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return null;
 	}
 

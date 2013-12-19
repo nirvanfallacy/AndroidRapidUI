@@ -14,7 +14,7 @@ public class OnTouchRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsTouch = new Class<?>[] { View.class, MotionEvent.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnTouch) annotation).value();
 	}
 

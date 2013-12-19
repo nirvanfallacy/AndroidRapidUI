@@ -11,12 +11,17 @@ class SupportFragmentHost extends Host {
 	}
 
 	@Override
-	public View findViewById(int id) {
+	protected View findViewById(int id) {
 		return fragment.getView().findViewById(id);
 	}
 
 	@Override
 	public void setHasOptionsMenu(boolean hasMenu) {
 		fragment.setHasOptionsMenu(hasMenu);
+	}
+
+	@Override
+	protected Object getFragmentManager() {
+		return fragment.getFragmentManager();
 	}
 }

@@ -1,6 +1,7 @@
 package rapidui;
 
 import static rapidui.util.Shortcuts.newHashMap;
+import static rapidui.util.Shortcuts.newSparseArray;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -31,6 +32,7 @@ import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
 import rapidui.annotation.SearchBar;
 import rapidui.annotation.SystemService;
+import rapidui.annotation.event.ListenSensor;
 import rapidui.annotation.event.On;
 import rapidui.annotation.event.OnAfterTextChanged;
 import rapidui.annotation.event.OnBeforeTextChanged;
@@ -49,6 +51,7 @@ import rapidui.annotation.event.OnQueryTextChange;
 import rapidui.annotation.event.OnQueryTextSubmit;
 import rapidui.annotation.event.OnScroll;
 import rapidui.annotation.event.OnScrollStateChange;
+import rapidui.annotation.event.OnSensorChange;
 import rapidui.annotation.event.OnServiceConnect;
 import rapidui.annotation.event.OnServiceDisconnect;
 import rapidui.annotation.event.OnTextChanged;
@@ -70,6 +73,8 @@ import rapidui.event.OnMenuItemClickHostEvent;
 import rapidui.event.OnQueryTextChangeHostEvent;
 import rapidui.event.OnQueryTextSubmitHostEvent;
 import rapidui.event.OnScrollRegistrar;
+import rapidui.event.OnSensorChangeHostEvent;
+import rapidui.event.OnSensorChangeRegistrar;
 import rapidui.event.OnServiceConnectHostEvent;
 import rapidui.event.OnServiceDisconnectHostEvent;
 import rapidui.event.OnTouchRegistrar;
@@ -110,9 +115,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.hardware.ConsumerIrManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
@@ -158,9 +167,8 @@ import android.widget.TextView;
 public abstract class RapidAspect {
 	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
-	private static Class<?>[] argsMenuItemClick = new Class<?>[] { MenuItem.class };
-	private static Class<?>[] argsQueryTextChange = argsServiceConnect;
-	private static Class<?>[] argsQueryTextSubmit = argsServiceConnect;
+	private static Class<?>[] argsSensorChange = new Class<?>[] { SensorEvent.class };
+	private static SparseArray<Class<?>[]> hostEventArguments;
 	
 	private static boolean support4lib = true;
 	private static boolean support7lib = true;
@@ -303,11 +311,11 @@ public abstract class RapidAspect {
 						(UnregisterableEventRegistrar) registrar;
 				final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
 				
-				for (int id: registrar.getTargetIds(annotation)) {
+				for (int id: registrar.getTargetViewIds(annotation)) {
 					addUnregEvent(id, registrar2, lifecycle, annotationType, method);
 				}
 			} else {
-				for (int id: registrar.getTargetIds(annotation)) {
+				for (int id: registrar.getTargetViewIds(annotation)) {
 					addEvent(id, registrar, annotationType, method);
 				}
 			}
@@ -371,12 +379,12 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		public void injectCustomEvents(SparseArray<View> viewMap) {
+		public void injectCustomEvents() {
 			if (customEventMap == null) return;
 			
 			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
 				final int id = entry.getKey();
-				final Object target = findViewById(id, viewMap);
+				final Object target = host.findView(id);
 				
 				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
 					injectCustomEvent(target, entry2);
@@ -384,11 +392,11 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		public void injectSimpleEvents(SparseArray<View> viewMap) {
+		public void injectSimpleEvents() {
 			if (eventMap == null) return;
 			for (Entry<Integer, HashMap<SimpleEventRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
 				final int id = entry.getKey();
-				final Object target = findViewById(id, viewMap);
+				final Object target = host.findView(id);
 				
 				for (Entry<SimpleEventRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
 					final SimpleEventRegistrar registrar = entry2.getKey();
@@ -402,13 +410,9 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		public void injectUnregisterableEvents(SparseArray<View> viewMap) {
+		public void injectUnregisterableEvents() {
 			if (unregEventMap == null) return;
 				
-			if (unregEvents == null) {
-				unregEvents = new HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>>();
-			}
-			
 			for (Entry<Integer,
 					   HashMap<UnregisterableEventRegistrar,
 					           HashMap<Lifecycle, HashMap<Class<?>, Method>>
@@ -416,7 +420,7 @@ public abstract class RapidAspect {
 			     > entry: unregEventMap) {
 				
 				final int id = entry.getKey();
-				final Object target = findViewById(id, viewMap);
+				final Object target = host.findView(id);
 				
 				for (Entry<UnregisterableEventRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
 					final UnregisterableEventRegistrar registrar = entry2.getKey();
@@ -447,6 +451,7 @@ public abstract class RapidAspect {
 	public static final int HOST_EVENT_GLOBAL_LAYOUT = 3;
 	public static final int HOST_EVENT_QUERY_TEXT_CHANGE = 4;
 	public static final int HOST_EVENT_QUERY_TEXT_SUBMIT = 5;
+	public static final int HOST_EVENT_SENSOR_CHANGE = 6;
 	
 	protected static final int HOST_EVENT_USER = 100;
 	
@@ -496,6 +501,7 @@ public abstract class RapidAspect {
 		hostEvents.put(OnGlobalLayout.class, new OnGlobalLayoutHostEvent());
 		hostEvents.put(OnQueryTextChange.class, new OnQueryTextChangeHostEvent());
 		hostEvents.put(OnQueryTextSubmit.class, new OnQueryTextSubmitHostEvent());
+		hostEvents.put(OnSensorChange.class, new OnSensorChangeHostEvent());
 	}
 
 	private static void initAnnotationNameMatchList() {
@@ -766,16 +772,6 @@ public abstract class RapidAspect {
 		this.host = viewFinder;
 	}
 	
-	private View findViewById(int id, SparseArray<View> viewMap) {
-		View v = viewMap.get(id);
-		if (v == null) {
-			v = host.findViewById(id);
-			viewMap.put(id, v);
-		}
-		
-		return v;
-	}
-
 	public Lifecycle getCurrentLifecycle() {
 		return currentLifecycle;
 	}
@@ -975,6 +971,7 @@ public abstract class RapidAspect {
 				for (Annotation annotation: method.getAnnotations()) {
 					final Class<?> annotationType = annotation.annotationType();
 
+					// @Receiver
 					if (annotationType.equals(Receiver.class)) {
 						final Receiver receiver = (Receiver) annotation;
 						if (receiver != null) {
@@ -983,6 +980,8 @@ public abstract class RapidAspect {
 						}
 						continue;
 					}
+					
+					// @EventHandler
 					
 					if (annotationType.equals(EventHandler.class)) {
 						if (autoEventName == null) {
@@ -1003,6 +1002,8 @@ public abstract class RapidAspect {
 						
 						continue;
 					}
+					
+					// Host events
 					
 					ensureHostEventList();
 
@@ -1067,7 +1068,7 @@ public abstract class RapidAspect {
 		}
 	}
 	
-	private View injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
+	private View injectLayoutElement(Field field, LayoutElement layoutElement) {
 		int id = layoutElement.value() | layoutElement.id();
 		if (id == 0) {
 			String name = field.getName();
@@ -1087,8 +1088,6 @@ public abstract class RapidAspect {
 			field.set(memberContainer, v);
 			
 			if (v != null) {
-				viewMap.put(id, v);
-				
 				if (v instanceof TextView && layoutElement.font() != 0) {
 					final Typeface typeface = loadTypeface(layoutElement.font());
 					final TextView tv = (TextView) v;
@@ -1250,7 +1249,9 @@ public abstract class RapidAspect {
 			} else {
 				service = BluetoothAdapter.getDefaultAdapter();
 			}
-//		} else if (fieldClass.equals(DisplayManagerCompat.class)) {
+		} else if (fieldType.equals(PackageManager.class)) {
+			service = activity.getPackageManager();
+//		} else if (fieldType.equals(DisplayManagerCompat.class)) {
 //			service = DisplayManagerCompat.getInstance(activity);
 		} else {
 			initSystemServiceList();
@@ -1272,7 +1273,7 @@ public abstract class RapidAspect {
 	}
 
 	public void injectViews() {
-		final SparseArray<View> viewMap = new SparseArray<View>();
+		host.enableViewCache();
 		
 		final EventInjector eventInjector = new EventInjector();
 		
@@ -1282,10 +1283,6 @@ public abstract class RapidAspect {
 //		// [customEvnetHandlerInfo][lifecycle][eventName] = method
 //		HashMap3<UnregisterableCustomEventHandlerInfo, Lifecycle, String, Method> unregCustomEventMap = null;
 		
-		if (unregEvents != null) {
-			unregEvents.clear();
-		}
-
 		Class<?> cls = memberContainer.getClass();
 		
 		while (cls != null && !isRapidClass(cls)) {
@@ -1298,7 +1295,7 @@ public abstract class RapidAspect {
 				// @LayoutElement
 				final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
 				if (layoutElement != null) {
-					injectLayoutElement(field, layoutElement, viewMap);
+					injectLayoutElement(field, layoutElement);
 				}
 			}
 	
@@ -1339,9 +1336,11 @@ public abstract class RapidAspect {
 			cls = cls.getSuperclass();
 		}
 		
-		eventInjector.injectSimpleEvents(viewMap);
-		eventInjector.injectCustomEvents(viewMap);
-		eventInjector.injectUnregisterableEvents(viewMap);
+		eventInjector.injectSimpleEvents();
+		eventInjector.injectCustomEvents();
+		eventInjector.injectUnregisterableEvents();
+		
+		host.disableViewCache();
 	}
 	
 	private static HashMap<String, WeakReference<Typeface>> typefaces;
@@ -1427,20 +1426,46 @@ public abstract class RapidAspect {
 			
 			break;
 			
+		case HOST_EVENT_SENSOR_CHANGE:
+			final SensorManager sm = (SensorManager) activity.getSystemService(Context.SENSOR_SERVICE);
+			final ArgumentMapper am = new ArgumentMapper(argsSensorChange, method);
+			
+			final OnSensorChange sc = (OnSensorChange) annotation;
+			for (ListenSensor ls: sc.value()) {
+				final Sensor sensor = sm.getDefaultSensor(ls.sensorType());
+				final OnSensorChangeRegistrar registrar = new OnSensorChangeRegistrar(sensor, ls.rate());
+				
+				final SensorEventListener listener = new SensorEventListener() {
+					@Override
+					public void onSensorChanged(SensorEvent event) {
+						try {
+							method.setAccessible(true);
+							method.invoke(memberContainer, am.match(event));
+						} catch (IllegalAccessException e) {
+							e.printStackTrace();
+						} catch (IllegalArgumentException e) {
+							e.printStackTrace();
+						} catch (InvocationTargetException e) {
+							e.printStackTrace();
+						}
+					}
+					
+					@Override
+					public void onAccuracyChanged(Sensor sensor, int accuracy) {
+					}
+				};
+				
+				registerUnregisterableEvent(ls.lifecycle(), registrar, sm, listener);
+			}
+
+			break;
+			
 		case HOST_EVENT_MENU_ITEM_CLICK:
 		case HOST_EVENT_QUERY_TEXT_CHANGE:
 		case HOST_EVENT_QUERY_TEXT_SUBMIT:
 			if (id == null) break;
 			
-			Class<?>[] args = null;
-			if (type == HOST_EVENT_MENU_ITEM_CLICK) {
-				args = argsMenuItemClick;
-			} else if (type == HOST_EVENT_QUERY_TEXT_CHANGE) {
-				args = argsQueryTextChange;
-			} else if (type == HOST_EVENT_QUERY_TEXT_SUBMIT) {
-				args = argsQueryTextSubmit;
-			}
-
+			final Class<?>[] args = getHostEventArguments(type);
 			final ArgumentMapper argMatcher = new ArgumentMapper(args, method);
 			putHostEventHandler(type, (Integer) id, new EventHandlerInfo(method, argMatcher));
 			
@@ -1456,6 +1481,21 @@ public abstract class RapidAspect {
 		return (hostEventHandlers == null ? null : hostEventHandlers.remove(type, id));
 	}
 	
+	protected static Class<?>[] getHostEventArguments(int type) {
+		if (hostEventArguments == null) {
+			initHostEventArguments();
+		}
+		return hostEventArguments.get(type);
+	}
+	
+	private static void initHostEventArguments() {
+		hostEventArguments = newSparseArray(
+				HOST_EVENT_MENU_ITEM_CLICK, new Class<?>[] { MenuItem.class },
+				HOST_EVENT_QUERY_TEXT_CHANGE, argsServiceConnect,
+				HOST_EVENT_QUERY_TEXT_SUBMIT, argsServiceConnect
+		);
+	}
+
 	protected void putHostEventHandler(int type, int id, EventHandlerInfo info) {
 		if (hostEventHandlers == null) {
 			hostEventHandlers = SparseArray2.create();
@@ -1640,6 +1680,8 @@ public abstract class RapidAspect {
 		annotationNameMatch = null;
 		systemServices = null;
 		resourceLoaders = null;
+		
+		hostEventArguments = null;
 		
 		if (typefaces != null) {
 			final Iterator<Entry<String, WeakReference<Typeface>>> it = typefaces.entrySet().iterator();

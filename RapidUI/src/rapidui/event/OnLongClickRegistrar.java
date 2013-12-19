@@ -13,7 +13,7 @@ public class OnLongClickRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsLongClick = new Class<?>[] { View.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnLongClick) annotation).value();
 	}
 

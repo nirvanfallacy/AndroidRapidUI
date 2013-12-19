@@ -15,7 +15,7 @@ public class OnCreateContextMenuRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsCreateContextMenu = new Class<?>[] { ContextMenu.class, View.class, ContextMenuInfo.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnCreateContextMenu) annotation).value();
 	}
 

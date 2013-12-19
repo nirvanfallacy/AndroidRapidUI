@@ -17,7 +17,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsScrollStateChanged_NumberPicker = new Class<?>[] { NumberPicker.class, Integer.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		if (annotation instanceof OnScroll) {
 			return ((OnScroll) annotation).value();
 		} else if (annotation instanceof OnScrollStateChange) {

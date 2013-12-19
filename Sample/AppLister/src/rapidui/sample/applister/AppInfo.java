@@ -2,15 +2,14 @@ package rapidui.sample.applister;
 
 import java.lang.ref.SoftReference;
 
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.graphics.drawable.Drawable;
-import rapidui.Cancelable;
 import rapidui.RapidTask;
-import rapidui.adapter.AsyncCallback;
+import rapidui.adapter.AsyncResult;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToImage;
 import rapidui.annotation.adapter.BindToText;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
 
 @AdapterItem(R.layout.list_item_app_info)
 public class AppInfo implements Comparable<AppInfo> {
@@ -37,12 +36,12 @@ public class AppInfo implements Comparable<AppInfo> {
 	}
 
 	@BindToImage(R.id.image_app_icon)
-	public void getIcon(final AsyncCallback callback, Cancelable canceler) {
+	public void getIcon(final AsyncResult callback) {
 		Drawable d = (icon == null ? null : icon.get());
 		if (d != null) {
 			callback.done(d);
 		} else {
-			new RapidTask<Drawable>() {
+			callback.setCancelable(new RapidTask<Drawable>() {
 				@Override
 				protected Drawable doInBackground(Object... params) throws Exception {
 					return ri.loadIcon(pm);
@@ -53,7 +52,7 @@ public class AppInfo implements Comparable<AppInfo> {
 					icon = new SoftReference<Drawable>(result);
 					callback.done(result);
 				}
-			}.execute();
+			}.execute());
 		}
 	}
 

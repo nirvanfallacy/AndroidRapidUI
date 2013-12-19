@@ -8,55 +8,13 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context=".BindServiceTestActivity" >
     
-    <LinearLayout
+    <LinearLayout android:id="@+id/container_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
 	    android:paddingBottom="@dimen/activity_vertical_margin"
 	    android:paddingLeft="@dimen/activity_horizontal_margin"
 	    android:paddingRight="@dimen/activity_horizontal_margin"
-	    android:paddingTop="@dimen/activity_vertical_margin">
-	    
-        <Button android:id="@+id/button_bind_service_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/bind_service_test" />
-        
-        <Button android:id="@+id/button_instance_state_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/instance_state_test" />
-        
-        <Button android:id="@+id/button_receiver_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/receiver_test" />
-        
-        <Button android:id="@+id/button_global_layout_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/global_layout_test" />
-
-        <Button android:id="@+id/button_font_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/font_test" />
-
-        <Button android:id="@+id/button_adapter_field_binding_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/adapter_test_field_binding" />
-
-        <Button android:id="@+id/button_adapter_method_binding_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/adapter_test_method_binding" />
-
-        <Button android:id="@+id/button_adapter_async_method_binding_test"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/adapter_test_async_method_binding" />
-        
-    </LinearLayout>
+	    android:paddingTop="@dimen/activity_vertical_margin" />
 
 </ScrollView>

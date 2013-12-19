@@ -13,7 +13,7 @@ public class OnFocusChangeRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsFocusChange = new Class<?>[] { View.class, Boolean.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnFocusChange) annotation).value();
 	}
 

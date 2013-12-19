@@ -13,7 +13,7 @@ public class OnCheckedChangeRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsCheckedChange = new Class<?>[] { CompoundButton.class, Boolean.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnCheckedChange) annotation).value();
 	}
 

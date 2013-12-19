@@ -14,7 +14,7 @@ public class OnDragRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsOnDrag = new Class<?>[] { View.class, DragEvent.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnDrag) annotation).value();
 	}
 

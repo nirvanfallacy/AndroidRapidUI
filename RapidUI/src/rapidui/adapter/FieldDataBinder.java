@@ -2,7 +2,6 @@ package rapidui.adapter;
 
 import java.lang.reflect.Field;
 
-import rapidui.Cancelable;
 import rapidui.ValueCallback;
 import android.view.View;
 
@@ -12,8 +11,8 @@ public class FieldDataBinder extends ConstDataBinder {
 	}
 
 	@Override
-	public void bind(final Object instance, final View v, final Runnable callback, final Cancelable canceler) {
-		super.bind(instance, v, callback, canceler);
+	public void bind(final Object instance, final View v, final AsyncJob job) {
+		super.bind(instance, v, job);
 		
 		// Bind listener
 		

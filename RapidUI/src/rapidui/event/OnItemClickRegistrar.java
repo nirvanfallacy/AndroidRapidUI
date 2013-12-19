@@ -15,7 +15,7 @@ public class OnItemClickRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsItemClick = new Class<?>[] { AdapterView.class, View.class, Integer.TYPE, Long.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnItemClick) annotation).value();
 	}
 

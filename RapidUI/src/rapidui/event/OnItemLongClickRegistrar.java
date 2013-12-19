@@ -15,7 +15,7 @@ public class OnItemLongClickRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsItemLongClick = new Class<?>[] { AdapterView.class, View.class, Integer.TYPE, Long.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnItemLongClick) annotation).value();
 	}
 

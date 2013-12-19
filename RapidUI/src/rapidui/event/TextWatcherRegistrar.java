@@ -15,7 +15,7 @@ import android.widget.TextView;
 
 public class TextWatcherRegistrar extends UnregisterableEventRegistrar {
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		if (annotation instanceof OnTextChanged) {
 			return ((OnTextChanged) annotation).value();
 		} else if (annotation instanceof OnBeforeTextChanged) {

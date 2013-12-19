@@ -1,5 +1,6 @@
 package rapidui;
 
 public interface Cancelable {
-	boolean isCanceled();
+	void cancel();
+//	boolean isCanceled();
 }

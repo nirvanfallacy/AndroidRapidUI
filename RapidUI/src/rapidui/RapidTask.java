@@ -24,7 +24,7 @@ import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 
-public abstract class RapidTask<Result> {
+public abstract class RapidTask<Result> implements Cancelable {
     private static class AsyncTaskResult<Data> {
 		@SuppressWarnings("rawtypes")
 		final RapidTask mTask;
@@ -432,7 +432,7 @@ public abstract class RapidTask<Result> {
         
     	dismissDialog();
     	
-        if (isCancelled()) {
+        if (isCanceled()) {
             onCancelled(result);
         } else {
             onPostExecute(result);
@@ -554,7 +554,7 @@ public abstract class RapidTask<Result> {
      *
      * @see #cancel(boolean)
      */
-    public final boolean isCancelled() {
+    public final boolean isCanceled() {
         return mCancelled.get();
     }
 
@@ -652,21 +652,21 @@ public abstract class RapidTask<Result> {
     }
     
     public void setProgress(int progress) {
-    	if (!isCancelled()) {
+    	if (!isCanceled()) {
 	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_PROGRESS,
 	        		new AsyncTaskResult<Integer>(this, progress)).sendToTarget();
     	}
     }
 
     public void setProgressMessage(CharSequence message) {
-    	if (!isCancelled()) {
+    	if (!isCanceled()) {
 	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_MESSAGE,
 	        		new AsyncTaskResult<CharSequence>(this, message)).sendToTarget();
     	}
     }
 
     public void setProgressTitle(CharSequence title) {
-    	if (!isCancelled()) {
+    	if (!isCanceled()) {
 	        sHandler.obtainMessage(MESSAGE_SET_PROGRESS_DIALOG_TITLE,
 	        		new AsyncTaskResult<CharSequence>(this, title)).sendToTarget();
     	}
@@ -679,5 +679,10 @@ public abstract class RapidTask<Result> {
     		this.threadPriority = priority;
     	}
     	return this;
+    }
+    
+    @Override
+    public void cancel() {
+    	cancel(true);
     }
 }

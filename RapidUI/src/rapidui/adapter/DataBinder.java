@@ -2,7 +2,6 @@ package rapidui.adapter;
 
 import java.util.WeakHashMap;
 
-import rapidui.Cancelable;
 import rapidui.ValueCallback;
 import android.view.View;
 
@@ -16,7 +15,7 @@ public abstract class DataBinder {
 		this.viewBinder = viewBinder;
 	}
 	
-	public abstract void bind(Object instance, View v, Runnable callback, Cancelable canceler);
+	public abstract void bind(Object instance, View v, AsyncJob job);
 	public abstract Object getValue(Object instance) throws Exception;
 
 	public void unbind(View v) {

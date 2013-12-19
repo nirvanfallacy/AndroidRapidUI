@@ -62,6 +62,11 @@
             android:name="rapidui.test.basictest.adapter.AsyncMethodBindingActivity"
             android:label="@string/adapter_test_method_binding"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name="rapidui.test.basictest.sensor.SensorTestActivity"
+            android:label="@string/sensor_test_activity"
+            android:screenOrientation="portrait" />
         
     </application>
 

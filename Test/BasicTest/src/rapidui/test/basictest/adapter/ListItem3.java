@@ -1,7 +1,7 @@
 package rapidui.test.basictest.adapter;
 
 import rapidui.Cancelable;
-import rapidui.adapter.AsyncCallback;
+import rapidui.adapter.AsyncResult;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToEnabled;
 import rapidui.annotation.adapter.BindToImage;
@@ -39,7 +39,7 @@ public class ListItem3 {
 	}
 
 	@BindToImage(R.id.imageview)
-	public void loadImage(final AsyncCallback callback, Cancelable cancelable) {
+	public void loadImage(final AsyncResult callback, Cancelable cancelable) {
 		new AsyncTask<Object, Object, Drawable>() {
 			@Override
 			protected Drawable doInBackground(Object... params) {

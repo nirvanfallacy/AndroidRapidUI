@@ -14,7 +14,7 @@ public class OnKeyRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsKey = new Class<?>[] { View.class, Integer.TYPE, KeyEvent.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnKey) annotation).value();
 	}
 
