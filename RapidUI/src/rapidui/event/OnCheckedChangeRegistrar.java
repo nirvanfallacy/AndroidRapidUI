@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
+import rapidui.Host;
 import rapidui.annotation.event.OnCheckedChange;
 import android.widget.CompoundButton;
 
@@ -13,7 +14,7 @@ public class OnCheckedChangeRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsCheckedChange = new Class<?>[] { CompoundButton.class, Boolean.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnCheckedChange) annotation).value();
 	}
 
@@ -44,5 +45,10 @@ public class OnCheckedChangeRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((CompoundButton) target).setOnCheckedChangeListener((CompoundButton.OnCheckedChangeListener) dispatcher);
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }

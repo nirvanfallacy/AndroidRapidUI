@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
+import rapidui.Host;
 import rapidui.annotation.event.OnTouch;
 import android.view.MotionEvent;
 import android.view.View;
@@ -14,7 +15,7 @@ public class OnTouchRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsTouch = new Class<?>[] { View.class, MotionEvent.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnTouch) annotation).value();
 	}
 
@@ -47,5 +48,10 @@ public class OnTouchRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((View) target).setOnTouchListener((View.OnTouchListener) dispatcher);
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }

@@ -5,6 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.Host;
 import rapidui.Lifecycle;
 
 public class CustomEventRegistrar extends UnregisterableEventRegistrar {
@@ -27,7 +28,7 @@ public class CustomEventRegistrar extends UnregisterableEventRegistrar {
 	}
 
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return null;
 	}
 
@@ -74,5 +75,10 @@ public class CustomEventRegistrar extends UnregisterableEventRegistrar {
 		
 		final CustomEventRegistrar registrar = (CustomEventRegistrar) o;
 		return adder.equals(registrar.adder) && remover.equals(registrar.remover);
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }

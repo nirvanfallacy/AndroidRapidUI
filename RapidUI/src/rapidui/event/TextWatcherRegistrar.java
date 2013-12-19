@@ -5,6 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
+import rapidui.Host;
 import rapidui.Lifecycle;
 import rapidui.annotation.event.OnAfterTextChanged;
 import rapidui.annotation.event.OnBeforeTextChanged;
@@ -15,7 +16,7 @@ import android.widget.TextView;
 
 public class TextWatcherRegistrar extends UnregisterableEventRegistrar {
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		if (annotation instanceof OnTextChanged) {
 			return ((OnTextChanged) annotation).value();
 		} else if (annotation instanceof OnBeforeTextChanged) {
@@ -109,5 +110,10 @@ public class TextWatcherRegistrar extends UnregisterableEventRegistrar {
 		}
 		
 		return Lifecycle.CREATE;
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }

@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
+import rapidui.Host;
 import rapidui.annotation.event.OnItemLongClick;
 import android.view.View;
 import android.widget.AbsListView;
@@ -15,7 +16,7 @@ public class OnItemLongClickRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsItemLongClick = new Class<?>[] { AdapterView.class, View.class, Integer.TYPE, Long.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnItemLongClick) annotation).value();
 	}
 
@@ -54,5 +55,10 @@ public class OnItemLongClickRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((AbsListView) target).setOnItemLongClickListener((AdapterView.OnItemLongClickListener) dispatcher);
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }

@@ -303,12 +303,19 @@ public abstract class RapidAspect {
 						(UnregisterableEventRegistrar) registrar;
 				final Lifecycle lifecycle = registrar2.getLifecycle(annotation);
 				
-				for (int id: registrar.getTargetIds(annotation)) {
+				for (int id: registrar.getTargetViewIds(annotation)) {
 					addUnregEvent(id, registrar2, lifecycle, annotationType, method);
 				}
 			} else {
-				for (int id: registrar.getTargetIds(annotation)) {
-					addEvent(id, registrar, annotationType, method);
+				final int[] ids = registrar.getTargetViewIds(annotation);
+				if (ids != null) {
+					for (int id: ids) {
+						addEvent(id, registrar, annotationType, method);
+					}
+				}
+				
+				final Object nonViewTarget = registrar.getNonViewTarget(host);
+				if (nonViewTarget != null) {
 				}
 			}
 		}
@@ -371,12 +378,12 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		public void injectCustomEvents(SparseArray<View> viewMap) {
+		public void injectCustomEvents() {
 			if (customEventMap == null) return;
 			
 			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
 				final int id = entry.getKey();
-				final Object target = findViewById(id, viewMap);
+				final Object target = host.findView(id);
 				
 				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
 					injectCustomEvent(target, entry2);
@@ -384,11 +391,11 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		public void injectSimpleEvents(SparseArray<View> viewMap) {
+		public void injectSimpleEvents() {
 			if (eventMap == null) return;
 			for (Entry<Integer, HashMap<SimpleEventRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
 				final int id = entry.getKey();
-				final Object target = findViewById(id, viewMap);
+				final Object target = host.findView(id);
 				
 				for (Entry<SimpleEventRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
 					final SimpleEventRegistrar registrar = entry2.getKey();
@@ -402,7 +409,7 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		public void injectUnregisterableEvents(SparseArray<View> viewMap) {
+		public void injectUnregisterableEvents() {
 			if (unregEventMap == null) return;
 				
 			for (Entry<Integer,
@@ -412,7 +419,7 @@ public abstract class RapidAspect {
 			     > entry: unregEventMap) {
 				
 				final int id = entry.getKey();
-				final Object target = findViewById(id, viewMap);
+				final Object target = host.findView(id);
 				
 				for (Entry<UnregisterableEventRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
 					final UnregisterableEventRegistrar registrar = entry2.getKey();
@@ -762,16 +769,6 @@ public abstract class RapidAspect {
 		this.host = viewFinder;
 	}
 	
-	private View findViewById(int id, SparseArray<View> viewMap) {
-		View v = viewMap.get(id);
-		if (v == null) {
-			v = host.findViewById(id);
-			viewMap.put(id, v);
-		}
-		
-		return v;
-	}
-
 	public Lifecycle getCurrentLifecycle() {
 		return currentLifecycle;
 	}
@@ -1063,7 +1060,7 @@ public abstract class RapidAspect {
 		}
 	}
 	
-	private View injectLayoutElement(Field field, LayoutElement layoutElement, SparseArray<View> viewMap) {
+	private View injectLayoutElement(Field field, LayoutElement layoutElement) {
 		int id = layoutElement.value() | layoutElement.id();
 		if (id == 0) {
 			String name = field.getName();
@@ -1083,8 +1080,6 @@ public abstract class RapidAspect {
 			field.set(memberContainer, v);
 			
 			if (v != null) {
-				viewMap.put(id, v);
-				
 				if (v instanceof TextView && layoutElement.font() != 0) {
 					final Typeface typeface = loadTypeface(layoutElement.font());
 					final TextView tv = (TextView) v;
@@ -1268,7 +1263,7 @@ public abstract class RapidAspect {
 	}
 
 	public void injectViews() {
-		final SparseArray<View> viewMap = new SparseArray<View>();
+		host.enableViewCache();
 		
 		final EventInjector eventInjector = new EventInjector();
 		
@@ -1294,7 +1289,7 @@ public abstract class RapidAspect {
 				// @LayoutElement
 				final LayoutElement layoutElement = field.getAnnotation(LayoutElement.class);
 				if (layoutElement != null) {
-					injectLayoutElement(field, layoutElement, viewMap);
+					injectLayoutElement(field, layoutElement);
 				}
 			}
 	
@@ -1335,9 +1330,11 @@ public abstract class RapidAspect {
 			cls = cls.getSuperclass();
 		}
 		
-		eventInjector.injectSimpleEvents(viewMap);
-		eventInjector.injectCustomEvents(viewMap);
-		eventInjector.injectUnregisterableEvents(viewMap);
+		eventInjector.injectSimpleEvents();
+		eventInjector.injectCustomEvents();
+		eventInjector.injectUnregisterableEvents();
+		
+		host.disableViewCache();
 	}
 	
 	private static HashMap<String, WeakReference<Typeface>> typefaces;

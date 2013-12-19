@@ -11,7 +11,7 @@ class ActivityHost extends Host {
 	}
 
 	@Override
-	public View findViewById(int id) {
+	protected View findViewById(int id) {
 		return activity.findViewById(id);
 	}
 

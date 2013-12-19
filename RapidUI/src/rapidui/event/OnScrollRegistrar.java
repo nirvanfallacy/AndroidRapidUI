@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
+import rapidui.Host;
 import rapidui.annotation.event.OnScroll;
 import rapidui.annotation.event.OnScrollStateChange;
 import android.widget.AbsListView;
@@ -17,7 +18,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsScrollStateChanged_NumberPicker = new Class<?>[] { NumberPicker.class, Integer.TYPE };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		if (annotation instanceof OnScroll) {
 			return ((OnScroll) annotation).value();
 		} else if (annotation instanceof OnScrollStateChange) {
@@ -106,5 +107,10 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 		} else if (target instanceof NumberPicker) {
 			((NumberPicker) target).setOnScrollListener((NumberPicker.OnScrollListener) dispatcher);
 		}
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }

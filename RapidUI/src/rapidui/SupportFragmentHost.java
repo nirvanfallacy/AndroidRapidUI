@@ -11,7 +11,7 @@ class SupportFragmentHost extends Host {
 	}
 
 	@Override
-	public View findViewById(int id) {
+	protected View findViewById(int id) {
 		return fragment.getView().findViewById(id);
 	}
 

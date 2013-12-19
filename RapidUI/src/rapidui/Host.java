@@ -8,13 +8,37 @@ import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.os.Build;
+import android.util.SparseArray;
 import android.view.View;
 
-abstract class Host {
-	public abstract View findViewById(int id);
+public abstract class Host {
 	public abstract void setHasOptionsMenu(boolean hasMenu);
 	
+	protected abstract View findViewById(int id);
 	protected abstract Object getFragmentManager();
+	
+	private SparseArray<View> viewCache;
+	
+	public View findView(int id) {
+		if (viewCache == null) {
+			return findViewById(id);
+		} else {
+			View v = viewCache.get(id);
+			if (v == null) {
+				v = findViewById(id);
+				viewCache.put(id, v);
+			}
+			return v;
+		}
+	}
+	
+	public void enableViewCache() {
+		viewCache = new SparseArray<View>();
+	}
+	
+	public void disableViewCache() {
+		viewCache = null;
+	}
 
 	public void addFragments(List<AddFragment> list) {
 		final Object fm = getFragmentManager();

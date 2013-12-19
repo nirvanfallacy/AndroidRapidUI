@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import rapidui.ArgumentMapper;
+import rapidui.Host;
 import rapidui.annotation.event.OnKey;
 import android.view.KeyEvent;
 import android.view.View;
@@ -14,7 +15,7 @@ public class OnKeyRegistrar extends SimpleEventRegistrar {
 	private static Class<?>[] argsKey = new Class<?>[] { View.class, Integer.TYPE, KeyEvent.class };
 	
 	@Override
-	public int[] getTargetIds(Annotation annotation) {
+	public int[] getTargetViewIds(Annotation annotation) {
 		return ((OnKey) annotation).value();
 	}
 
@@ -47,5 +48,10 @@ public class OnKeyRegistrar extends SimpleEventRegistrar {
 	@Override
 	public void registerEventListener(Object target, Object dispatcher) {
 		((View) target).setOnKeyListener((View.OnKeyListener) dispatcher);
+	}
+
+	@Override
+	public Object getNonViewTarget(Host host) {
+		return null;
 	}
 }
