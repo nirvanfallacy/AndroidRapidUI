@@ -45,7 +45,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 					
 					try {
 						onScrollStateChanged.setAccessible(true);
-						onScrollStateChanged.invoke(instance, amScrollStateChanged.match(view, scrollState));
+						onScrollStateChanged.invoke(instance, amScrollStateChanged.map(view, scrollState));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {
@@ -63,7 +63,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 					
 					try {
 						onScroll.setAccessible(true);
-						onScroll.invoke(instance, amScroll.match(view, firstVisibleItem, visibleItemCount, totalItemCount));
+						onScroll.invoke(instance, amScroll.map(view, firstVisibleItem, visibleItemCount, totalItemCount));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {
@@ -84,7 +84,7 @@ public class OnScrollRegistrar extends SimpleEventRegistrar {
 					
 					onScrollStateChanged.setAccessible(true);
 					try {
-						onScrollStateChanged.invoke(instance, amScrollStateChanged.match(view, scrollState));
+						onScrollStateChanged.invoke(instance, amScrollStateChanged.map(view, scrollState));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {

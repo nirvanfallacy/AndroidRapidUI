@@ -36,7 +36,7 @@ public class OnItemLongClickRegistrar extends SimpleEventRegistrar {
 
 					onItemLongClick.setAccessible(true);;
 					try {
-						return (Boolean) onItemLongClick.invoke(instance, amItemLongClick.match(parent, view, position, id));
+						return (Boolean) onItemLongClick.invoke(instance, amItemLongClick.map(parent, view, position, id));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {

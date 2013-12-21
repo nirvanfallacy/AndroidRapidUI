@@ -55,7 +55,7 @@ public class CustomEventInfo {
 					}
 
 					delegate.setAccessible(true);
-					return delegate.invoke(memberContainer, am.match(args));
+					return delegate.invoke(memberContainer, am.map(args));
 				} else {
 					if (isEquals(method)) {
 						return proxy == args[0];

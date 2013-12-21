@@ -30,7 +30,7 @@ public class OnTouchRegistrar extends SimpleEventRegistrar {
 			public boolean onTouch(View v, MotionEvent event) {
 				try {
 					onTouch.setAccessible(true);
-					return (Boolean) onTouch.invoke(instance, amTouch.match(v, event));
+					return (Boolean) onTouch.invoke(instance, amTouch.map(v, event));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

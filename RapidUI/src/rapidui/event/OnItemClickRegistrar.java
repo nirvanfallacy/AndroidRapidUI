@@ -33,7 +33,7 @@ public class OnItemClickRegistrar extends SimpleEventRegistrar {
 
 				try {
 					onItemClick.setAccessible(true);
-					onItemClick.invoke(instance, amItemClick.match(parent, view, position, id));
+					onItemClick.invoke(instance, amItemClick.map(parent, view, position, id));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

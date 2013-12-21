@@ -29,7 +29,7 @@ public class OnClickRegistrar extends SimpleEventRegistrar {
 			public void onClick(View v) {
 				try {
 					onClick.setAccessible(true);
-					onClick.invoke(instance, amClick.match(v));
+					onClick.invoke(instance, amClick.map(v));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

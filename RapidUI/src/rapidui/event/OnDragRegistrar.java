@@ -30,7 +30,7 @@ public class OnDragRegistrar extends SimpleEventRegistrar {
 			public boolean onDrag(View v, DragEvent event) {
 				try {
 					onDrag.setAccessible(true);
-					return (Boolean) onDrag.invoke(instance, amDrag.match(v, event));
+					return (Boolean) onDrag.invoke(instance, amDrag.map(v, event));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

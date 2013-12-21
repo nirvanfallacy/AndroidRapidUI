@@ -29,7 +29,7 @@ public class OnCheckedChangeRegistrar extends SimpleEventRegistrar {
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 				try {
 					onCheckedChange.setAccessible(true);
-					onCheckedChange.invoke(instance, amCheckedChange.match(buttonView, isChecked));
+					onCheckedChange.invoke(instance, amCheckedChange.map(buttonView, isChecked));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

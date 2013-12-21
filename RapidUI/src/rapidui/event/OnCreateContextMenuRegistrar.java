@@ -33,7 +33,7 @@ public class OnCreateContextMenuRegistrar extends SimpleEventRegistrar {
 				
 				try {
 					onCreateContextMenu.setAccessible(true);
-					onCreateContextMenu.invoke(instance, amCreateContextMenu.match(menu, v, menuInfo));
+					onCreateContextMenu.invoke(instance, amCreateContextMenu.map(menu, v, menuInfo));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

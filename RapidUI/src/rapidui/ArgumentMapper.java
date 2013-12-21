@@ -30,7 +30,7 @@ public class ArgumentMapper {
 		this(srcTypes, targetMethod.getParameterTypes());
 	}
 	
-	public Object[] match(Object... args) {
+	public Object[] map(Object... args) {
 		if (matchIndices == null) {
 			return args;
 		} else {

@@ -29,7 +29,7 @@ public class OnLongClickRegistrar extends SimpleEventRegistrar {
 			public boolean onLongClick(View v) {
 				try {
 					onLongClick.setAccessible(true);
-					return (Boolean) onLongClick.invoke(instance, amLongClick.match(v));
+					return (Boolean) onLongClick.invoke(instance, amLongClick.map(v));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

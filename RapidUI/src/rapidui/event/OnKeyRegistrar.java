@@ -30,7 +30,7 @@ public class OnKeyRegistrar extends SimpleEventRegistrar {
 			public boolean onKey(View v, int keyCode, KeyEvent event) {
 				try {
 					onKey.setAccessible(true);
-					return (Boolean) onKey.invoke(instance, amKey.match(v, keyCode, event));
+					return (Boolean) onKey.invoke(instance, amKey.map(v, keyCode, event));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

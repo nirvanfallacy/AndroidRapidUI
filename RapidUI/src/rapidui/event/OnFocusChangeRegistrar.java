@@ -29,7 +29,7 @@ public class OnFocusChangeRegistrar extends SimpleEventRegistrar {
 			public void onFocusChange(View v, boolean hasFocus) {
 				try {
 					onFocus.setAccessible(true);
-					onFocus.invoke(instance, v, amFocus.match(hasFocus));
+					onFocus.invoke(instance, v, amFocus.map(hasFocus));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {

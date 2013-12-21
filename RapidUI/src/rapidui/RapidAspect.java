@@ -4,6 +4,7 @@ import static rapidui.util.Shortcuts.newHashMap;
 import static rapidui.util.Shortcuts.newSparseArray;
 
 import java.io.Serializable;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.annotation.Annotation;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
@@ -54,6 +55,7 @@ import rapidui.annotation.event.OnServiceConnect;
 import rapidui.annotation.event.OnServiceDisconnect;
 import rapidui.annotation.event.OnTextChanged;
 import rapidui.annotation.event.OnTouch;
+import rapidui.annotation.event.OnUncaughtException;
 import rapidui.event.CustomEventInfo;
 import rapidui.event.CustomEventRegistrar;
 import rapidui.event.HostEventInfo;
@@ -74,6 +76,7 @@ import rapidui.event.OnScrollRegistrar;
 import rapidui.event.OnServiceConnectHostEvent;
 import rapidui.event.OnServiceDisconnectHostEvent;
 import rapidui.event.OnTouchRegistrar;
+import rapidui.event.OnUncaughtExceptionHostEvent;
 import rapidui.event.SimpleEventRegistrar;
 import rapidui.event.TextWatcherRegistrar;
 import rapidui.event.UnregisterableCustomEventInfo;
@@ -443,6 +446,7 @@ public abstract class RapidAspect {
 	public static final int HOST_EVENT_GLOBAL_LAYOUT = 3;
 	public static final int HOST_EVENT_QUERY_TEXT_CHANGE = 4;
 	public static final int HOST_EVENT_QUERY_TEXT_SUBMIT = 5;
+	public static final int HOST_EVENT_UNCAUGHT_EXCEPTION = 6;
 	
 	protected static final int HOST_EVENT_USER = 100;
 	
@@ -492,6 +496,7 @@ public abstract class RapidAspect {
 		hostEvents.put(OnGlobalLayout.class, new OnGlobalLayoutHostEvent());
 		hostEvents.put(OnQueryTextChange.class, new OnQueryTextChangeHostEvent());
 		hostEvents.put(OnQueryTextSubmit.class, new OnQueryTextSubmitHostEvent());
+		hostEvents.put(OnUncaughtException.class, new OnUncaughtExceptionHostEvent());
 	}
 
 	private static void initAnnotationNameMatchList() {
@@ -849,7 +854,7 @@ public abstract class RapidAspect {
 						if (callback != null && callback.onConnect != null) {
 							try {
 								callback.onConnect.setAccessible(true);
-								callback.onConnect.invoke(memberContainer, callback.amConnect.match(alias));
+								callback.onConnect.invoke(memberContainer, callback.amConnect.map(alias));
 							} catch (InvocationTargetException e) {
 								e.printStackTrace();
 							} catch (IllegalAccessException e) {
@@ -873,7 +878,7 @@ public abstract class RapidAspect {
 					if (callback != null && callback.onDisconnect != null) {
 						try {
 							callback.onDisconnect.setAccessible(true);
-							callback.onDisconnect.invoke(memberContainer, callback.amDisconnect.match(alias));
+							callback.onDisconnect.invoke(memberContainer, callback.amDisconnect.map(alias));
 						} catch (IllegalAccessException e1) {
 							e1.printStackTrace();
 						} catch (IllegalArgumentException e1) {
@@ -1125,7 +1130,7 @@ public abstract class RapidAspect {
 				public void onReceive(Context context, Intent intent) {
 					try {
 						method.setAccessible(true);
-						method.invoke(memberContainer, am.match(context, intent));
+						method.invoke(memberContainer, am.map(context, intent));
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					} catch (IllegalArgumentException e) {
@@ -1416,6 +1421,10 @@ public abstract class RapidAspect {
 			
 			break;
 			
+		case HOST_EVENT_UNCAUGHT_EXCEPTION:
+			setupUncaughtExceptionHandler(method);
+			break;
+			
 		case HOST_EVENT_MENU_ITEM_CLICK:
 		case HOST_EVENT_QUERY_TEXT_CHANGE:
 		case HOST_EVENT_QUERY_TEXT_SUBMIT:
@@ -1427,6 +1436,27 @@ public abstract class RapidAspect {
 			
 			break;
 		}
+	}
+
+	private void setupUncaughtExceptionHandler(final Method method) {
+		final ArgumentMapper am = new ArgumentMapper(getHostEventArguments(HOST_EVENT_UNCAUGHT_EXCEPTION), method);
+		
+		final UncaughtExceptionHandler ueh = Thread.getDefaultUncaughtExceptionHandler();
+		Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+			@Override
+			public void uncaughtException(Thread thread, Throwable ex) {
+				try {
+					method.setAccessible(true);
+					method.invoke(memberContainer, am.map(ueh, thread, ex));
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	protected EventHandlerInfo getHostEventHandler(int type, int id) {
@@ -1448,7 +1478,8 @@ public abstract class RapidAspect {
 		hostEventArguments = newSparseArray(
 				HOST_EVENT_MENU_ITEM_CLICK, new Class<?>[] { MenuItem.class },
 				HOST_EVENT_QUERY_TEXT_CHANGE, argsServiceConnect,
-				HOST_EVENT_QUERY_TEXT_SUBMIT, argsServiceConnect
+				HOST_EVENT_QUERY_TEXT_SUBMIT, argsServiceConnect,
+				HOST_EVENT_UNCAUGHT_EXCEPTION, new Class<?>[] { UncaughtExceptionHandler.class, Thread.class, Throwable.class }
 		);
 	}
 
@@ -1801,7 +1832,7 @@ public abstract class RapidAspect {
 			if (info != null) {
 				try {
 					info.method.setAccessible(true);
-					return (Boolean) info.method.invoke(memberContainer, info.argMatcher.match(item));
+					return (Boolean) info.method.invoke(memberContainer, info.argMatcher.map(item));
 				} catch (IllegalAccessException e) {
 					e.printStackTrace();
 				} catch (IllegalArgumentException e) {
@@ -1899,7 +1930,7 @@ public abstract class RapidAspect {
 
 								try {
 									event2.method.setAccessible(true);
-									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
+									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.map(query));
 								} catch (IllegalAccessException e) {
 									e.printStackTrace();
 								} catch (IllegalArgumentException e) {
@@ -1917,7 +1948,7 @@ public abstract class RapidAspect {
 								
 								try {
 									event1.method.setAccessible(true);
-									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
+									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.map(newText));
 								} catch (IllegalAccessException e) {
 									e.printStackTrace();
 								} catch (IllegalArgumentException e) {
@@ -1962,7 +1993,7 @@ public abstract class RapidAspect {
 
 								try {
 									event2.method.setAccessible(true);
-									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.match(query));
+									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.map(query));
 								} catch (IllegalAccessException e) {
 									e.printStackTrace();
 								} catch (IllegalArgumentException e) {
@@ -1980,7 +2011,7 @@ public abstract class RapidAspect {
 								
 								try {
 									event1.method.setAccessible(true);
-									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.match(newText));
+									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.map(newText));
 								} catch (IllegalAccessException e) {
 									e.printStackTrace();
 								} catch (IllegalArgumentException e) {
