@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 
 import rapidui.RapidTask.OnStatusChangedListener;
 import rapidui.RapidTask.Status;
+import rapidui.annotation.Application;
 import rapidui.annotation.ConnectService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
@@ -546,7 +547,8 @@ public abstract class RapidAspect {
 		resourceLoaders.add(new StringLoader());
 	}
 	
-	private static void initSystemServiceList() {
+	@SuppressWarnings("deprecation")
+	private static void ensureSystemServiceList() {
 		if (systemServices != null) return;
 		
 		systemServices = new HashMap<Class<?>, String>();
@@ -556,6 +558,7 @@ public abstract class RapidAspect {
 		systemServices.put(AlarmManager.class, Context.ALARM_SERVICE);
 		systemServices.put(AudioManager.class, Context.AUDIO_SERVICE);
 		systemServices.put(ClipboardManager.class, Context.CLIPBOARD_SERVICE);
+		systemServices.put(android.text.ClipboardManager.class, Context.CLIPBOARD_SERVICE);
 		systemServices.put(ConnectivityManager.class, Context.CONNECTIVITY_SERVICE);
 		systemServices.put(KeyguardManager.class, Context.KEYGUARD_SERVICE);
 		systemServices.put(LayoutInflater.class, Context.LAYOUT_INFLATER_SERVICE);
@@ -955,6 +958,12 @@ public abstract class RapidAspect {
 				if (font != null) {
 					injectFont(field, font);
 				}
+				
+				// @App
+				final Application app = field.getAnnotation(Application.class);
+				if (app != null) {
+					injectApp(field);
+				}
 			}
 			
 			// Methods
@@ -1024,6 +1033,17 @@ public abstract class RapidAspect {
 		}
 	}
 	
+	private void injectApp(Field field) {
+		field.setAccessible(true);
+		try {
+			field.set(memberContainer, activity.getApplication());
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+		}
+	}
+
 	private void injectFont(Field field, Font font) {
 		String path = font.path();
 		if (path.length() == 0) {
@@ -1249,7 +1269,7 @@ public abstract class RapidAspect {
 //		} else if (fieldType.equals(DisplayManagerCompat.class)) {
 //			service = DisplayManagerCompat.getInstance(activity);
 		} else {
-			initSystemServiceList();
+			ensureSystemServiceList();
 			
 			final String serviceName = systemServices.get(fieldType);
 			service = activity.getSystemService(serviceName);
@@ -1260,9 +1280,9 @@ public abstract class RapidAspect {
 				field.setAccessible(true);
 				field.set(memberContainer, service);
 			} catch (IllegalAccessException e) {
-				e.printStackTrace();
+				throw new RuntimeException(e);
 			} catch (IllegalArgumentException e) {
-				e.printStackTrace();
+				throw new RuntimeException(e);
 			}
 		}
 	}
@@ -1832,18 +1852,23 @@ public abstract class RapidAspect {
 			if (info != null) {
 				try {
 					info.method.setAccessible(true);
-					return (Boolean) info.method.invoke(memberContainer, info.argMatcher.map(item));
+					return parseBooleanResult(info.method.invoke(memberContainer, info.argMatcher.map(item)), true);
 				} catch (IllegalAccessException e) {
-					e.printStackTrace();
+					throw new RuntimeException(e);
 				} catch (IllegalArgumentException e) {
-					e.printStackTrace();
+					throw new RuntimeException(e);
 				} catch (InvocationTargetException e) {
-					e.printStackTrace();
+					throw new RuntimeException(e);
 				}
 			}
 		}
 		
 		return false;
+	}
+	
+	private static boolean parseBooleanResult(Object o, boolean defaultValue) {
+		if (o == null) return defaultValue;
+		return (o instanceof Boolean ? (Boolean) o : defaultValue);
 	}
 	
 	protected abstract String getHostNamePostFix();
