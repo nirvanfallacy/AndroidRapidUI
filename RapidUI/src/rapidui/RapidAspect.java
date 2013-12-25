@@ -1,7 +1,7 @@
 package rapidui;
 
-import static rapidui.util.Shortcuts.newHashMap;
-import static rapidui.util.Shortcuts.newSparseArray;
+import static rapidui.shortcut.Shortcuts.newHashMap;
+import static rapidui.shortcut.Shortcuts.newSparseArray;
 
 import java.io.Serializable;
 import java.lang.Thread.UncaughtExceptionHandler;

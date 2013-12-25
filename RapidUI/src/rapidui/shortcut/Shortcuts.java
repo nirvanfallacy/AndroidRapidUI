@@ -1,4 +1,4 @@
-package rapidui.util;
+package rapidui.shortcut;
 
 import java.util.HashMap;
 import java.util.Map;
