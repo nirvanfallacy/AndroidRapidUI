@@ -5,8 +5,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import rapidui.Lifecycle;
+
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface OnGlobalLayout {
 	public boolean once() default true;
+	public Lifecycle lifecycle() default Lifecycle.CREATE;
 }

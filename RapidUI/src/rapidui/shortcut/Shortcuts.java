@@ -3,7 +3,10 @@ package rapidui.shortcut;
 import java.util.HashMap;
 import java.util.Map;
 
+import android.os.Build;
 import android.util.SparseArray;
+import android.view.View;
+import android.view.ViewTreeObserver;
 
 public class Shortcuts {
 	public static <K, V> HashMap<K, V> newHashMap() {
@@ -37,6 +40,19 @@ public class Shortcuts {
 			final int key = (Integer) params[i];
 			final V value = (V) params[i + 1];
 			map.put(key, value);
+		}
+	}
+
+	public static void addOnGlobalLayoutListener(View v, ViewTreeObserver.OnGlobalLayoutListener listener) {
+		v.getViewTreeObserver().addOnGlobalLayoutListener(listener);
+	}
+	
+	@SuppressWarnings("deprecation")
+	public static void removeOnGlobalLayoutListener(View v, ViewTreeObserver.OnGlobalLayoutListener listener) {
+		if (Build.VERSION.SDK_INT >= 16) {
+			v.getViewTreeObserver().removeOnGlobalLayoutListener(listener);
+		} else {
+			v.getViewTreeObserver().removeGlobalOnLayoutListener(listener);
 		}
 	}
 }

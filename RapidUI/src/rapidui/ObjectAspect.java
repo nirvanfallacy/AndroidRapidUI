@@ -2,6 +2,7 @@ package rapidui;
 
 import static rapidui.shortcut.Shortcuts.newHashMap;
 import static rapidui.shortcut.Shortcuts.newSparseArray;
+import static rapidui.shortcut.Shortcuts.removeOnGlobalLayoutListener;
 
 import java.io.Serializable;
 import java.lang.Thread.UncaughtExceptionHandler;
@@ -64,6 +65,7 @@ import rapidui.event.OnCreateContextMenuRegistrar;
 import rapidui.event.OnDragRegistrar;
 import rapidui.event.OnFocusChangeRegistrar;
 import rapidui.event.OnGlobalLayoutHostEvent;
+import rapidui.event.OnGlobalLayoutRegistrar;
 import rapidui.event.OnItemClickRegistrar;
 import rapidui.event.OnItemLongClickRegistrar;
 import rapidui.event.OnKeyRegistrar;
@@ -1168,41 +1170,44 @@ public class ObjectAspect {
 	
 	private void injectResource(Field field, Resource resource) {
 		final Resources res = context.getResources();
-		
-		initResourceLoaders();
-		
-		final int id = resource.id() | resource.value();
-		
 		Object value = null;
-		final ResourceType resType = resource.type();
-		if (resType == ResourceType.NONE) {
-			// Infer the resource type from some hints.
+		
+		final Class<?> fieldType = field.getType();
+		if (fieldType.equals(Resources.class)) {
+			value = res;
+		} else {
+			initResourceLoaders();
+			
+			final int id = resource.id() | resource.value();
+			
+			final ResourceType resType = resource.type();
+			if (resType == ResourceType.NONE) {
+				// Infer the resource type from some hints.
 
-			if (id != 0) {
-				final Class<?> fieldType = field.getType();
-				final String typeName = res.getResourceTypeName(id);
-				
-				for (ResourceLoader loader: resourceLoaders) {
-					value = loader.load(context, typeName, id, fieldType);
-					if (value != null) break;
+				if (id != 0) {
+					final String typeName = res.getResourceTypeName(id);
+					
+					for (ResourceLoader loader: resourceLoaders) {
+						value = loader.load(context, typeName, id, fieldType);
+						if (value != null) break;
+					}
+				} else {
+					final String name = field.getName();
+					
+					for (ResourceLoader loader: resourceLoaders) {
+						value = loader.load(context, name, fieldType);
+						if (value != null) break;
+					}
 				}
 			} else {
-				final String name = field.getName();
-				final Class<?> fieldType = field.getType();
+				// Resource type has been set by user.
+
+				final String fieldName = field.getName();
 				
 				for (ResourceLoader loader: resourceLoaders) {
-					value = loader.load(context, name, fieldType);
+					value = loader.load(context, resType, id, fieldName);
 					if (value != null) break;
 				}
-			}
-		} else {
-			// Resource type has been set by user.
-
-			final String fieldName = field.getName();
-			
-			for (ResourceLoader loader: resourceLoaders) {
-				value = loader.load(context, resType, id, fieldName);
-				if (value != null) break;
 			}
 		}
 		
@@ -1375,19 +1380,17 @@ public class ObjectAspect {
 			
 			break;
 			
-		case HOST_EVENT_GLOBAL_LAYOUT:
-			final boolean once = (annotation == null ? true : ((OnGlobalLayout) annotation).once());
+		case HOST_EVENT_GLOBAL_LAYOUT: {
+			final OnGlobalLayout onGlobalLayout = (OnGlobalLayout) annotation;
+			final boolean once = (onGlobalLayout == null ? true : onGlobalLayout.once());
+			final Lifecycle lifecycle = (onGlobalLayout == null ? Lifecycle.CREATE : onGlobalLayout.lifecycle());
+			final View target = viewFinder.getSuperView();
 			
-			viewFinder.getSuperView().getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-				@SuppressWarnings("deprecation")
+			final Object dispatcher = new ViewTreeObserver.OnGlobalLayoutListener() {
 				@Override
 				public void onGlobalLayout() {
 					if (once) {
-						if (Build.VERSION.SDK_INT >= 16) {
-							viewFinder.getSuperView().getViewTreeObserver().removeOnGlobalLayoutListener(this);
-						} else {
-							viewFinder.getSuperView().getViewTreeObserver().removeGlobalOnLayoutListener(this);
-						}
+						removeOnGlobalLayoutListener(target, this);
 					}
 					
 					try {
@@ -1401,9 +1404,11 @@ public class ObjectAspect {
 						e.printStackTrace();
 					}
 				}
-			});
+			};
 			
+			registerUnregisterableEvent(lifecycle, OnGlobalLayoutRegistrar.getInstance(), target, dispatcher);
 			break;
+		}
 			
 		case HOST_EVENT_UNCAUGHT_EXCEPTION:
 			setupUncaughtExceptionHandler(method);
@@ -1797,5 +1802,9 @@ public class ObjectAspect {
 	protected static boolean parseBooleanResult(Object o, boolean defaultValue) {
 		if (o == null) return defaultValue;
 		return (o instanceof Boolean ? (Boolean) o : defaultValue);
+	}
+
+	ViewFinder getViewFinder() {
+		return viewFinder;
 	}
 }
