@@ -24,6 +24,7 @@ import rapidui.RapidTask.Status;
 import rapidui.annotation.Application;
 import rapidui.annotation.ConnectService;
 import rapidui.annotation.EventHandler;
+import rapidui.annotation.Extra;
 import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
 import rapidui.annotation.LayoutElement;
@@ -1092,12 +1093,21 @@ public class ObjectAspect {
 			filter.addDataScheme(scheme);
 		}
 		
-		final String[] extraKeys = receiver.extra();
+		final Annotation[][] paramAnnotations = method.getParameterAnnotations();
+		final ArrayList<Extra> extraList = new ArrayList<Extra>();
 		final ArgumentMapper am = new ArgumentMapper(argsReceiver, method);
 
 		final BroadcastReceiver broadcastReceiver;
 		
-		if (extraKeys.length == 0 || am.isIdentical()) {
+		for (Annotation[] annos: paramAnnotations) {
+			for (Annotation anno: annos) {
+				if (anno instanceof Extra) {
+					extraList.add((Extra) anno);
+				}
+			}
+		}
+		
+		if (extraList.isEmpty()) {
 			broadcastReceiver = new BroadcastReceiver() {
 				@Override
 				public void onReceive(Context context, Intent intent) {
@@ -1114,18 +1124,20 @@ public class ObjectAspect {
 				}
 			};
 		} else {
+			extraList.trimToSize();
+			
+			final Object[] args = new Object [am.size()];
 			broadcastReceiver = new BroadcastReceiver() {
 				@Override
 				public void onReceive(Context context, Intent intent) {
 					final Bundle extras = (intent == null ? null : intent.getExtras());
 
-					final Object[] args = new Object[am.size()];
 					am.fillMatchedResult(args, 0, context, intent);
 					
 					int j = 0;
-					for (int i = 0; i < extraKeys.length; ++i) {
+					for (Extra extra: extraList) {
 						for (; am.isMapped(j); ++j);
-						args[j++] = extras.get(extraKeys[i]);
+						args[j++] = extras.get(extra.value());
 					}
 					
 					try {

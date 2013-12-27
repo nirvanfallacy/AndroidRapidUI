@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Locale;
 
 import rapidui.Lifecycle;
-import rapidui.RapidAdapter;
 import rapidui.RapidListActivity;
 import rapidui.RapidTask;
+import rapidui.adapter.RapidAdapter;
 import rapidui.annotation.Layout;
 import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Receiver;

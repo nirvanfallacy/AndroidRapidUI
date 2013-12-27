@@ -3,6 +3,7 @@ package rapidui.test.basictest.receiver;
 import java.util.Random;
 
 import rapidui.RapidActivity;
+import rapidui.annotation.Extra;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Receiver;
@@ -29,9 +30,11 @@ public class ReceiverTestActivity extends RapidActivity {
 		sendBroadcast(intent);
 	}
 	
-	@Receiver(action=ACTION_BROADCAST_TEST,
-			  extra={"operator", "a", "b"})
-	void receiver(String op, int a, int b) {
+	@Receiver(ACTION_BROADCAST_TEST)
+	void receiver(@Extra("operator") String op,
+			@Extra("a") int a,
+			@Extra("b") int b) {
+		
 		int result;
 		if (op.equals("+")) {
 			result = a + b;

@@ -12,7 +12,6 @@ import rapidui.Lifecycle;
 public @interface Receiver {
 	public String[] value() default {};
 	public String[] action() default {};
-	public String[] extra() default {};
 	public String[] category() default {};
 	public Lifecycle lifecycle() default Lifecycle.START;
 	public String[] dataScheme() default {};
