@@ -4,7 +4,7 @@ import java.lang.annotation.Annotation;
 import java.util.Arrays;
 
 import android.content.Context;
-import rapidui.RapidAspect;
+import rapidui.ObjectAspect;
 import rapidui.annotation.event.OnServiceConnect;
 
 public class OnServiceConnectHostEvent extends HostEventInfo {
@@ -15,7 +15,7 @@ public class OnServiceConnectHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return RapidAspect.HOST_EVENT_SERVICE_CONNECT;
+		return ObjectAspect.HOST_EVENT_SERVICE_CONNECT;
 	}
 
 	@Override

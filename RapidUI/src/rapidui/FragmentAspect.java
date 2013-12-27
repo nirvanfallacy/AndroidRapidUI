@@ -8,13 +8,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-class FragmentAspect extends RapidAspect {
+class FragmentAspect extends HostAspect {
 	public FragmentAspect(Activity activity, Object memberContainer, Host host) {
 		super(activity, memberContainer, host);
 	}
 	
 	public View injectFragment(LayoutInflater inflater, ViewGroup parentView) {
-		final Resources res = activity.getResources();
+		final Resources res = context.getResources();
 		
 		View contentView = null;
 		
@@ -27,7 +27,7 @@ class FragmentAspect extends RapidAspect {
 			if (contentView == null && layout != null) {
 				int id = layout.value();
 				if (id == 0) {
-					final String packageName = activity.getPackageName();
+					final String packageName = context.getPackageName();
 					
 					String name = cls.getSimpleName();
 					if (name.length() > 8 && name.endsWith("Fragment")) {
@@ -46,7 +46,7 @@ class FragmentAspect extends RapidAspect {
 			
 			final OptionsMenu optionsMenu = cls.getAnnotation(OptionsMenu.class);
 			if (optionsMenu != null) {
-				host.setHasOptionsMenu(true);
+				getHost().setHasOptionsMenu(true);
 			}
 			
 			cls = cls.getSuperclass();

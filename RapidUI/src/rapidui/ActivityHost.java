@@ -23,4 +23,9 @@ class ActivityHost extends Host {
 	protected Object getFragmentManager() {
 		return activity.getFragmentManager();
 	}
+
+	@Override
+	protected View getSuperView() {
+		return activity.getWindow().getDecorView();
+	}
 }
