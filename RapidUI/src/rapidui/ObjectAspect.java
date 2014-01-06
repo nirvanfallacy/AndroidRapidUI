@@ -28,6 +28,9 @@ import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
 import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
+import rapidui.annotation.IntentAction;
+import rapidui.annotation.IntentPackage;
+import rapidui.annotation.IntentData;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
@@ -154,7 +157,6 @@ import android.view.textservice.TextServicesManager;
 import android.widget.TextView;
 
 public class ObjectAspect {
-	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
 	private static SparseArray<Class<?>[]> hostEventArguments;
 	
@@ -1096,65 +1098,62 @@ public class ObjectAspect {
 		}
 		
 		final Annotation[][] paramAnnotations = method.getParameterAnnotations();
-		final ArrayList<Extra> extraList = new ArrayList<Extra>();
-		final ArgumentMapper am = new ArgumentMapper(argsReceiver, method);
+		final Annotation[] annotationList = new Annotation [paramAnnotations.length];
 
 		final BroadcastReceiver broadcastReceiver;
 		
-		for (Annotation[] annos: paramAnnotations) {
+		for (int i = 0, c = paramAnnotations.length; i < c; ++i) {
+			final Annotation[] annos = paramAnnotations[i];
 			for (Annotation anno: annos) {
-				if (anno instanceof Extra) {
-					extraList.add((Extra) anno);
+				if (anno instanceof Extra ||
+						anno instanceof IntentAction ||
+						anno instanceof IntentData ||
+						anno instanceof IntentPackage) {
+					
+					annotationList[i] = anno;
+					break;
 				}
 			}
 		}
 		
-		if (extraList.isEmpty()) {
-			broadcastReceiver = new BroadcastReceiver() {
-				@Override
-				public void onReceive(Context context, Intent intent) {
-					try {
-						method.setAccessible(true);
-						method.invoke(memberContainer, am.map(context, intent));
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
-				}
-			};
-		} else {
-			extraList.trimToSize();
-			
-			final Object[] args = new Object [am.size()];
-			broadcastReceiver = new BroadcastReceiver() {
-				@Override
-				public void onReceive(Context context, Intent intent) {
-					final Bundle extras = (intent == null ? null : intent.getExtras());
+		final Object[] args = new Object [annotationList.length];
+		broadcastReceiver = new BroadcastReceiver() {
+			@Override
+			public void onReceive(Context context, Intent intent) {
+				final Bundle extras = (intent == null ? null : intent.getExtras());
 
-					am.fillMatchedResult(args, 0, context, intent);
-					
-					int j = 0;
-					for (Extra extra: extraList) {
-						for (; am.isMapped(j); ++j);
-						args[j++] = extras.get(extra.value());
+				for (int i = 0, c = annotationList.length; i < c; ++i) {
+					final Annotation anno = annotationList[i];
+					if (anno == null) {
+						args[i] = null;
+						continue;
 					}
 					
-					try {
-						method.setAccessible(true);
-						method.invoke(memberContainer, args);
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
+					if (anno instanceof Extra) {
+						args[i] = extras.get(((Extra) anno).value());
+					} else if (anno instanceof IntentAction) {
+						args[i] = intent.getAction();
+					} else if (anno instanceof IntentData) {
+						args[i] = intent.getData();
+					} else if (anno instanceof IntentPackage) {
+						args[i] = intent.getPackage();
+					} else {
+						args[i] = null;
 					}
 				}
-			};
-		}
+				
+				try {
+					method.setAccessible(true);
+					method.invoke(memberContainer, args);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		};
 		
 		final Lifecycle lifecycle = receiver.lifecycle();
 		
