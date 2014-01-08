@@ -26,6 +26,7 @@ import rapidui.annotation.Application;
 import rapidui.annotation.ConnectService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
+import rapidui.annotation.ExtraInt;
 import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
 import rapidui.annotation.IntentAction;
@@ -1106,6 +1107,7 @@ public class ObjectAspect {
 			final Annotation[] annos = paramAnnotations[i];
 			for (Annotation anno: annos) {
 				if (anno instanceof Extra ||
+						anno instanceof ExtraInt ||
 						anno instanceof IntentAction ||
 						anno instanceof IntentData ||
 						anno instanceof IntentPackage) {
@@ -1131,6 +1133,9 @@ public class ObjectAspect {
 					
 					if (anno instanceof Extra) {
 						args[i] = extras.get(((Extra) anno).value());
+					} else if (anno instanceof ExtraInt) {
+						final ExtraInt anno2 = (ExtraInt) anno;
+						args[i] = extras.getInt(anno2.name(), anno2.defaultValue());
 					} else if (anno instanceof IntentAction) {
 						args[i] = intent.getAction();
 					} else if (anno instanceof IntentData) {
