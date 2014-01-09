@@ -619,7 +619,7 @@ public abstract class RapidAspect {
 	
 	protected static boolean isRapidClass(Class<?> cls) {
 		if (cls.equals(RapidActivity.class) ||
-				cls.equals(RapidFragment.class)) {
+				(Build.VERSION.SDK_INT >= 11 && cls.equals(RapidFragment.class))) {
 			
 			return true;
 		}
