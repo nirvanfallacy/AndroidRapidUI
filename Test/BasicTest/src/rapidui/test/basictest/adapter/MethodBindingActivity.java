@@ -3,8 +3,8 @@ package rapidui.test.basictest.adapter;
 import java.util.ArrayList;
 import java.util.List;
 
-import rapidui.RapidAdapter;
 import rapidui.RapidListActivity;
+import rapidui.adapter.RapidAdapter;
 import rapidui.annotation.Layout;
 import rapidui.test.basictest.R;
 import android.os.Bundle;

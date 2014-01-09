@@ -24,4 +24,9 @@ class SupportFragmentHost extends Host {
 	protected Object getFragmentManager() {
 		return fragment.getFragmentManager();
 	}
+
+	@Override
+	protected View getSuperView() {
+		return fragment.getActivity().getWindow().getDecorView();
+	}
 }

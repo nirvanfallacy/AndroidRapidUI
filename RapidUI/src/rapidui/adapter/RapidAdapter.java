@@ -1,4 +1,4 @@
-package rapidui;
+package rapidui.adapter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -11,28 +11,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.WeakHashMap;
 
-import rapidui.adapter.AsyncJob;
-import rapidui.adapter.AsyncMethodDataBinder;
-import rapidui.adapter.AsyncResult;
-import rapidui.adapter.CheckedViewBinder;
-import rapidui.adapter.CompoundImageViewBinder;
-import rapidui.adapter.ConstDataBinder;
-import rapidui.adapter.DataBinder;
-import rapidui.adapter.EnabledViewBinder;
-import rapidui.adapter.FieldDataBinder;
-import rapidui.adapter.ImageViewBinder;
-import rapidui.adapter.MethodDataBinder;
-import rapidui.adapter.ProgressMaxViewBinder;
-import rapidui.adapter.ProgressViewBinder;
-import rapidui.adapter.RatingNumStarsViewBinder;
-import rapidui.adapter.RatingReadOnlyViewBinder;
-import rapidui.adapter.RatingStepSizeViewBinder;
-import rapidui.adapter.RatingViewBinder;
-import rapidui.adapter.StaticConstDataBinder;
-import rapidui.adapter.TextOffViewBinder;
-import rapidui.adapter.TextOnViewBinder;
-import rapidui.adapter.TextViewBinder;
-import rapidui.adapter.ViewBinder;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToBottomImage;
 import rapidui.annotation.adapter.BindToChecked;

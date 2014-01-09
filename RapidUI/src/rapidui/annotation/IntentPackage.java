@@ -7,6 +7,5 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Extra {
-	public String value() default "";
+public @interface IntentPackage {
 }

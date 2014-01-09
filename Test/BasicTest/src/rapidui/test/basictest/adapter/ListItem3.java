@@ -1,6 +1,6 @@
 package rapidui.test.basictest.adapter;
 
-import rapidui.Cancelable;
+import rapidui.RapidTask;
 import rapidui.adapter.AsyncResult;
 import rapidui.annotation.AdapterItem;
 import rapidui.annotation.adapter.BindToEnabled;
@@ -10,7 +10,6 @@ import rapidui.test.basictest.R;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-import android.os.AsyncTask;
 
 @AdapterItem(R.layout.adapter_item_image_text)
 public class ListItem3 {
@@ -39,8 +38,8 @@ public class ListItem3 {
 	}
 
 	@BindToImage(R.id.imageview)
-	public void loadImage(final AsyncResult callback, Cancelable cancelable) {
-		new AsyncTask<Object, Object, Drawable>() {
+	public void loadImage(final AsyncResult callback) {
+		callback.setCancelable(new RapidTask<Drawable>() {
 			@Override
 			protected Drawable doInBackground(Object... params) {
 				callback.progress(null);
@@ -50,7 +49,7 @@ public class ListItem3 {
 				
 				return null;
 			}
-		}.execute();
+		}.execute());
 	}
 
 	public ListItem3 disable() {

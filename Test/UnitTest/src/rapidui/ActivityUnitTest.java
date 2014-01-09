@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import rapidui.adapter.RapidAdapter;
 import rapidui.test.adapter.ListItem1;
 import rapidui.test.unittest.R;
 import android.app.Instrumentation;

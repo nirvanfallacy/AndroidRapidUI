@@ -2,7 +2,7 @@ package rapidui.event;
 
 import java.lang.annotation.Annotation;
 
-import rapidui.RapidAspect;
+import rapidui.ObjectAspect;
 import android.content.Context;
 
 public class OnUncaughtExceptionHostEvent extends HostEventInfo {
@@ -13,7 +13,7 @@ public class OnUncaughtExceptionHostEvent extends HostEventInfo {
 
 	@Override
 	public int getType() {
-		return RapidAspect.HOST_EVENT_UNCAUGHT_EXCEPTION;
+		return ObjectAspect.HOST_EVENT_UNCAUGHT_EXCEPTION;
 	}
 
 	@Override

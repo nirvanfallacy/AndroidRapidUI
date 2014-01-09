@@ -3,6 +3,8 @@ package rapidui.test.basictest.receiver;
 import java.util.Random;
 
 import rapidui.RapidActivity;
+import rapidui.annotation.Extra;
+import rapidui.annotation.IntentAction;
 import rapidui.annotation.Layout;
 import rapidui.annotation.LayoutElement;
 import rapidui.annotation.Receiver;
@@ -14,7 +16,8 @@ import android.widget.TextView;
 
 @Layout
 public class ReceiverTestActivity extends RapidActivity {
-	private static final String ACTION_BROADCAST_TEST = "rapidui.test.receivertest.action.BROADCAST_TEST";
+	private static final String ACTION_PLUS = "rapidui.test.receivertest.action.PLUS";
+	private static final String ACTION_MINUS = "rapidui.test.receivertest.action.MINUS";
 	
 	@LayoutElement TextView textResult;
 	
@@ -22,21 +25,28 @@ public class ReceiverTestActivity extends RapidActivity {
 	void buttonClickHandler(View v) {
 		final Random r = new Random();
 		
-		final Intent intent = new Intent(ACTION_BROADCAST_TEST);
-		intent.putExtra("operator", (v.getId() == R.id.button_test_plus ? "+" : "-"));
+		final Intent intent = new Intent(
+				v.getId() == R.id.button_test_plus ? ACTION_PLUS : ACTION_MINUS);
 		intent.putExtra("a", r.nextInt(10));
 		intent.putExtra("b", r.nextInt(10));
 		sendBroadcast(intent);
 	}
 	
-	@Receiver(action=ACTION_BROADCAST_TEST,
-			  extra={"operator", "a", "b"})
-	void receiver(String op, int a, int b) {
+	@Receiver({ACTION_PLUS, ACTION_MINUS})
+	void receiver(
+			@IntentAction String action,
+			@Extra("a") int a,
+			@Extra("b") int b) {
+		
+		String op;
 		int result;
-		if (op.equals("+")) {
+		
+		if (action.equals(ACTION_PLUS)) {
 			result = a + b;
-		} else if (op.equals("-")) {
+			op = "+";
+		} else if (action.equals(ACTION_MINUS)) {
 			result = a - b;
+			op = "-";
 		} else {
 			textResult.setText("");
 			return;

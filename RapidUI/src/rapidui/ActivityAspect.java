@@ -14,7 +14,7 @@ import android.content.res.Resources;
 import android.view.Window;
 import android.view.WindowManager;
 
-class ActivityAspect extends RapidAspect {
+class ActivityAspect extends HostAspect {
 	private int customTitleBar;
 	
 	public ActivityAspect(Activity activity) {
@@ -23,14 +23,15 @@ class ActivityAspect extends RapidAspect {
 	}
 	
 	public void injectActivity() {
-		final Resources res = activity.getResources();
+		final Activity activity = getActivity();
+		final Resources res = context.getResources();
 		final Window w = activity.getWindow();
 		
 		ArrayList<AddFragment> addFragments = null;
 		boolean titleBar = false;
 		int contentView = 0;
 		
-		Class<?> cls = activity.getClass();
+		Class<?> cls = context.getClass();
 		
 		while (cls != null && !isRapidClass(cls)) {
 			// NoTitleBar, CustomTitleBar
@@ -59,7 +60,7 @@ class ActivityAspect extends RapidAspect {
 			if (contentView == 0 && layout != null) {
 				int id = layout.value();
 				if (id == 0) {
-					final String packageName = activity.getPackageName();
+					final String packageName = context.getPackageName();
 					
 					String name = cls.getSimpleName();
 					if (name.length() > 8 && name.endsWith("Activity")) {
@@ -100,7 +101,7 @@ class ActivityAspect extends RapidAspect {
 		}
 		
 		if (addFragments != null) {
-			host.addFragments(addFragments);
+			getHost().addFragments(addFragments);
 		}
 	}
 
@@ -113,7 +114,7 @@ class ActivityAspect extends RapidAspect {
 		// Set layout id when the title bar is set to be customized.
 		
 		if (customTitleBar != 0) {
-			activity.getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, customTitleBar);
+			getActivity().getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, customTitleBar);
 		}
 	}
 }

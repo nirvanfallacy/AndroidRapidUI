@@ -2,6 +2,7 @@ package rapidui;
 
 import static rapidui.shortcut.Shortcuts.newHashMap;
 import static rapidui.shortcut.Shortcuts.newSparseArray;
+import static rapidui.shortcut.Shortcuts.removeOnGlobalLayoutListener;
 
 import java.io.Serializable;
 import java.lang.Thread.UncaughtExceptionHandler;
@@ -25,14 +26,16 @@ import rapidui.annotation.Application;
 import rapidui.annotation.ConnectService;
 import rapidui.annotation.EventHandler;
 import rapidui.annotation.Extra;
+import rapidui.annotation.ExtraInt;
 import rapidui.annotation.Font;
 import rapidui.annotation.InstanceState;
+import rapidui.annotation.IntentAction;
+import rapidui.annotation.IntentPackage;
+import rapidui.annotation.IntentData;
 import rapidui.annotation.LayoutElement;
-import rapidui.annotation.OptionsMenu;
 import rapidui.annotation.Receiver;
 import rapidui.annotation.Resource;
 import rapidui.annotation.ResourceType;
-import rapidui.annotation.SearchBar;
 import rapidui.annotation.SystemService;
 import rapidui.annotation.event.On;
 import rapidui.annotation.event.OnAfterTextChanged;
@@ -66,6 +69,7 @@ import rapidui.event.OnCreateContextMenuRegistrar;
 import rapidui.event.OnDragRegistrar;
 import rapidui.event.OnFocusChangeRegistrar;
 import rapidui.event.OnGlobalLayoutHostEvent;
+import rapidui.event.OnGlobalLayoutRegistrar;
 import rapidui.event.OnItemClickRegistrar;
 import rapidui.event.OnItemLongClickRegistrar;
 import rapidui.event.OnKeyRegistrar;
@@ -95,8 +99,6 @@ import rapidui.util.SparseArray2;
 import rapidui.util.SparseArray3;
 import rapidui.util.SparseArray4;
 import android.accounts.AccountManager;
-import android.app.ActionBar;
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -141,14 +143,10 @@ import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
 import android.print.PrintManager;
-import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBarActivity;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -157,12 +155,9 @@ import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.CaptioningManager;
 import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
-import android.widget.SearchView;
-import android.widget.SearchView.OnQueryTextListener;
 import android.widget.TextView;
 
-public abstract class RapidAspect {
-	private static Class<?>[] argsReceiver = new Class<?>[] { Context.class, Intent.class };
+public class ObjectAspect {
 	private static Class<?>[] argsServiceConnect = new Class<?>[] { String.class };
 	private static SparseArray<Class<?>[]> hostEventArguments;
 	
@@ -255,7 +250,7 @@ public abstract class RapidAspect {
 				
 				final SimpleEventRegistrar registrar = simpleEventRegistrars.get(annotationType);
 				if (registrar != null) {
-					final int id = ResourceUtils.findResourceId(activity, idName, "id");
+					final int id = ResourceUtils.findResourceId(context, idName, "id");
 					if (id != 0) {
 						if (registrar instanceof UnregisterableEventRegistrar) {
 							final UnregisterableEventRegistrar registrar2 =
@@ -288,7 +283,7 @@ public abstract class RapidAspect {
 				eventName = "";
 			}
 			
-			final int id = ResourceUtils.findResourceId(activity, idName, "id");
+			final int id = ResourceUtils.findResourceId(context, idName, "id");
 			if (id != 0) {
 				final EventHandler eventHandler = (EventHandler) annotation;
 				addCustomEvent(id, eventCategory, eventHandler.lifecycle(), eventName, method);
@@ -380,7 +375,7 @@ public abstract class RapidAspect {
 			
 			for (Entry<Integer, HashMap<String, HashMap<Lifecycle, HashMap<String, Method>>>> entry: customEventMap) {
 				final int id = entry.getKey();
-				final Object target = host.findView(id);
+				final Object target = viewFinder.findView(id);
 				
 				for (Entry<String, HashMap<Lifecycle, HashMap<String, Method>>> entry2: entry.getValue().entrySet()) {
 					injectCustomEvent(target, entry2);
@@ -392,7 +387,7 @@ public abstract class RapidAspect {
 			if (eventMap == null) return;
 			for (Entry<Integer, HashMap<SimpleEventRegistrar, HashMap<Class<?>, Method>>> entry: eventMap) {
 				final int id = entry.getKey();
-				final Object target = host.findView(id);
+				final Object target = viewFinder.findView(id);
 				
 				for (Entry<SimpleEventRegistrar, HashMap<Class<?>, Method>> entry2: entry.getValue().entrySet()) {
 					final SimpleEventRegistrar registrar = entry2.getKey();
@@ -416,7 +411,7 @@ public abstract class RapidAspect {
 			     > entry: unregEventMap) {
 				
 				final int id = entry.getKey();
-				final Object target = host.findView(id);
+				final Object target = viewFinder.findView(id);
 				
 				for (Entry<UnregisterableEventRegistrar, HashMap<Lifecycle, HashMap<Class<?>, Method>>> entry2: entry.getValue().entrySet()) {
 					final UnregisterableEventRegistrar registrar = entry2.getKey();
@@ -619,7 +614,7 @@ public abstract class RapidAspect {
 	
 	protected static boolean isRapidClass(Class<?> cls) {
 		if (cls.equals(RapidActivity.class) ||
-				(Build.VERSION.SDK_INT >= 11 && cls.equals(RapidFragment.class))) {
+				cls.equals(RapidFragment.class)) {
 			
 			return true;
 		}
@@ -750,12 +745,10 @@ public abstract class RapidAspect {
 		}
 	}
 	
-	protected Activity activity;
-
+	protected Context context;
 	protected Object memberContainer;
-	protected Host host;
+	protected ViewFinder viewFinder;
 	
-	private Lifecycle currentLifecycle;
 	private HashMap<Lifecycle, LinkedList<KeyValueEntry<IntentFilter, BroadcastReceiver>>> receivers;
 	private HashMap<Lifecycle, LinkedList<UnregisterableEventHandler>> unregEvents;
 	private HashSet<ServiceConnection> serviceConnections;
@@ -764,16 +757,12 @@ public abstract class RapidAspect {
 	private HashMap<String, SingletonTaskInfo> singletonTasks;
 	private HashMap<TaskLifecycle, HashSet<TaskInfo>> tasks;
 	
-	public RapidAspect(Activity activity, Object memberContainer, Host viewFinder) {
-		this.activity = activity;
+	public ObjectAspect(Context context, Object memberContainer, ViewFinder viewFinder) {
+		this.context = context;
 		this.memberContainer = memberContainer;
-		this.host = viewFinder;
+		this.viewFinder = viewFinder;
 	}
 	
-	public Lifecycle getCurrentLifecycle() {
-		return currentLifecycle;
-	}
-
 	private void injectBindService(final Field field, ConnectService bindService) {
 		// Get stub class
 		
@@ -812,10 +801,10 @@ public abstract class RapidAspect {
 		if (packageName.length() == 0) {
 			if (className.length() == 0) {
 				if (classType != null) {
-					intent.setClass(activity, classType);
+					intent.setClass(context, classType);
 				}
 			} else {
-				intent.setClassName(activity, className);
+				intent.setClassName(context, className);
 			}
 		} else {
 			if (className.length() != 0) {
@@ -910,13 +899,10 @@ public abstract class RapidAspect {
 		}
 		serviceConnections.add(conn);
 		
-		activity.bindService(intent, conn, flags);
+		context.bindService(intent, conn, flags);
 	}
 
 	public void injectCommonThings() {
-		final Intent intent = activity.getIntent();
-		final Bundle extras = (intent == null ? null : intent.getExtras());
-		
 		AutoEventName autoEventName = null;
 		
 		Class<?> cls = memberContainer.getClass();
@@ -931,14 +917,6 @@ public abstract class RapidAspect {
 				// @SystemService
 				if (field.isAnnotationPresent(SystemService.class)) {
 					injectSystemService(field);
-				}
-				
-				// @Extra
-				if (extras != null) {
-					final Extra extra = field.getAnnotation(Extra.class);
-					if (extra != null) {
-						injectExtra(field, extra, extras);
-					}
 				}
 				
 				// @Resource
@@ -997,7 +975,7 @@ public abstract class RapidAspect {
 							
 							final HostEventInfo info = hostEvents.get(autoEventName.annotationType);
 							if (info != null) {
-								final Object id = info.parseId(activity, autoEventName.target);
+								final Object id = info.parseId(context, autoEventName.target);
 								if (id != null) {
 									registerHostEvent(null, info.getType(), id, method);
 								}
@@ -1036,7 +1014,7 @@ public abstract class RapidAspect {
 	private void injectApp(Field field) {
 		field.setAccessible(true);
 		try {
-			field.set(memberContainer, activity.getApplication());
+			field.set(memberContainer, context.getApplicationContext());
 		} catch (IllegalAccessException e) {
 			e.printStackTrace();
 		} catch (IllegalArgumentException e) {
@@ -1048,7 +1026,7 @@ public abstract class RapidAspect {
 		String path = font.path();
 		if (path.length() == 0) {
 			final int id = font.value() | font.id();
-			path = activity.getString(id);
+			path = context.getString(id);
 		}
 		
 		final Typeface typeface = loadTypeface(path);
@@ -1064,25 +1042,6 @@ public abstract class RapidAspect {
 		}
 	}
 
-	private void injectExtra(Field field, Extra extra, Bundle extras) {
-		String key = extra.value();
-		if (key.length() == 0) {
-			key = field.getName();
-		}
-		
-		final Object value = extras.get(key);
-		if (value != null) {
-			try {
-				field.setAccessible(true);
-				field.set(memberContainer, value);
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			} catch (IllegalArgumentException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-	
 	private View injectLayoutElement(Field field, LayoutElement layoutElement) {
 		int id = layoutElement.value() | layoutElement.id();
 		if (id == 0) {
@@ -1094,12 +1053,12 @@ public abstract class RapidAspect {
 				}
 			}
 
-			id = ResourceUtils.findResourceId(activity, name, "id");
+			id = ResourceUtils.findResourceId(context, name, "id");
 		}
 		
 		field.setAccessible(true);
 		try {
-			final View v = host.findViewById(id);
+			final View v = viewFinder.findViewById(id);
 			field.set(memberContainer, v);
 			
 			if (v != null) {
@@ -1139,55 +1098,67 @@ public abstract class RapidAspect {
 			filter.addDataScheme(scheme);
 		}
 		
-		final String[] extraKeys = receiver.extra();
-		final ArgumentMapper am = new ArgumentMapper(argsReceiver, method);
+		final Annotation[][] paramAnnotations = method.getParameterAnnotations();
+		final Annotation[] annotationList = new Annotation [paramAnnotations.length];
 
 		final BroadcastReceiver broadcastReceiver;
 		
-		if (extraKeys.length == 0 || am.isIdentical()) {
-			broadcastReceiver = new BroadcastReceiver() {
-				@Override
-				public void onReceive(Context context, Intent intent) {
-					try {
-						method.setAccessible(true);
-						method.invoke(memberContainer, am.map(context, intent));
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
-				}
-			};
-		} else {
-			broadcastReceiver = new BroadcastReceiver() {
-				@Override
-				public void onReceive(Context context, Intent intent) {
-					final Bundle extras = (intent == null ? null : intent.getExtras());
-
-					final Object[] args = new Object[am.size()];
-					am.fillMatchedResult(args, 0, context, intent);
+		for (int i = 0, c = paramAnnotations.length; i < c; ++i) {
+			final Annotation[] annos = paramAnnotations[i];
+			for (Annotation anno: annos) {
+				if (anno instanceof Extra ||
+						anno instanceof ExtraInt ||
+						anno instanceof IntentAction ||
+						anno instanceof IntentData ||
+						anno instanceof IntentPackage) {
 					
-					int j = 0;
-					for (int i = 0; i < extraKeys.length; ++i) {
-						for (; am.isMapped(j); ++j);
-						args[j++] = extras.get(extraKeys[i]);
-					}
-					
-					try {
-						method.setAccessible(true);
-						method.invoke(memberContainer, args);
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
+					annotationList[i] = anno;
+					break;
 				}
-			};
+			}
 		}
+		
+		final Object[] args = new Object [annotationList.length];
+		broadcastReceiver = new BroadcastReceiver() {
+			@Override
+			public void onReceive(Context context, Intent intent) {
+				final Bundle extras = (intent == null ? null : intent.getExtras());
+
+				for (int i = 0, c = annotationList.length; i < c; ++i) {
+					final Annotation anno = annotationList[i];
+					if (anno == null) {
+						args[i] = null;
+						continue;
+					}
+					
+					if (anno instanceof Extra) {
+						args[i] = extras.get(((Extra) anno).value());
+					} else if (anno instanceof ExtraInt) {
+						final ExtraInt anno2 = (ExtraInt) anno;
+						args[i] = extras.getInt(anno2.name(), anno2.defaultValue());
+					} else if (anno instanceof IntentAction) {
+						args[i] = intent.getAction();
+					} else if (anno instanceof IntentData) {
+						args[i] = intent.getData();
+					} else if (anno instanceof IntentPackage) {
+						args[i] = intent.getPackage();
+					} else {
+						args[i] = null;
+					}
+				}
+				
+				try {
+					method.setAccessible(true);
+					method.invoke(memberContainer, args);
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		};
 		
 		final Lifecycle lifecycle = receiver.lifecycle();
 		
@@ -1202,42 +1173,45 @@ public abstract class RapidAspect {
 	}
 	
 	private void injectResource(Field field, Resource resource) {
-		final Resources res = activity.getResources();
-		
-		initResourceLoaders();
-		
-		final int id = resource.id() | resource.value();
-		
+		final Resources res = context.getResources();
 		Object value = null;
-		final ResourceType resType = resource.type();
-		if (resType == ResourceType.NONE) {
-			// Infer the resource type from some hints.
+		
+		final Class<?> fieldType = field.getType();
+		if (fieldType.equals(Resources.class)) {
+			value = res;
+		} else {
+			initResourceLoaders();
+			
+			final int id = resource.id() | resource.value();
+			
+			final ResourceType resType = resource.type();
+			if (resType == ResourceType.NONE) {
+				// Infer the resource type from some hints.
 
-			if (id != 0) {
-				final Class<?> fieldType = field.getType();
-				final String typeName = res.getResourceTypeName(id);
-				
-				for (ResourceLoader loader: resourceLoaders) {
-					value = loader.load(activity, typeName, id, fieldType);
-					if (value != null) break;
+				if (id != 0) {
+					final String typeName = res.getResourceTypeName(id);
+					
+					for (ResourceLoader loader: resourceLoaders) {
+						value = loader.load(context, typeName, id, fieldType);
+						if (value != null) break;
+					}
+				} else {
+					final String name = field.getName();
+					
+					for (ResourceLoader loader: resourceLoaders) {
+						value = loader.load(context, name, fieldType);
+						if (value != null) break;
+					}
 				}
 			} else {
-				final String name = field.getName();
-				final Class<?> fieldType = field.getType();
+				// Resource type has been set by user.
+
+				final String fieldName = field.getName();
 				
 				for (ResourceLoader loader: resourceLoaders) {
-					value = loader.load(activity, name, fieldType);
+					value = loader.load(context, resType, id, fieldName);
 					if (value != null) break;
 				}
-			}
-		} else {
-			// Resource type has been set by user.
-
-			final String fieldName = field.getName();
-			
-			for (ResourceLoader loader: resourceLoaders) {
-				value = loader.load(activity, resType, id, fieldName);
-				if (value != null) break;
 			}
 		}
 		
@@ -1260,19 +1234,19 @@ public abstract class RapidAspect {
 		
 		if (fieldType.equals(BluetoothAdapter.class)) {
 			if (Build.VERSION.SDK_INT >= 18) {
-				service = activity.getSystemService(Context.BLUETOOTH_SERVICE);
+				service = context.getSystemService(Context.BLUETOOTH_SERVICE);
 			} else {
 				service = BluetoothAdapter.getDefaultAdapter();
 			}
 		} else if (fieldType.equals(PackageManager.class)) {
-			service = activity.getPackageManager();
+			service = context.getPackageManager();
 //		} else if (fieldType.equals(DisplayManagerCompat.class)) {
 //			service = DisplayManagerCompat.getInstance(activity);
 		} else {
 			ensureSystemServiceList();
 			
 			final String serviceName = systemServices.get(fieldType);
-			service = activity.getSystemService(serviceName);
+			service = context.getSystemService(serviceName);
 		}
 
 		if (service != null) {
@@ -1288,7 +1262,7 @@ public abstract class RapidAspect {
 	}
 
 	public void injectViews() {
-		host.enableViewCache();
+		viewFinder.enableViewCache();
 		
 		final EventInjector eventInjector = new EventInjector();
 		
@@ -1355,7 +1329,7 @@ public abstract class RapidAspect {
 		eventInjector.injectCustomEvents();
 		eventInjector.injectUnregisterableEvents();
 		
-		host.disableViewCache();
+		viewFinder.disableViewCache();
 	}
 	
 	private static HashMap<String, WeakReference<Typeface>> typefaces;
@@ -1371,7 +1345,7 @@ public abstract class RapidAspect {
 			}
 		}
 		
-		final Typeface typeface = Typeface.createFromAsset(activity.getAssets(), path);
+		final Typeface typeface = Typeface.createFromAsset(context.getAssets(), path);
 		if (typeface != null) {
 			typefaces.put(path, new WeakReference<Typeface>(typeface));
 		}
@@ -1380,7 +1354,7 @@ public abstract class RapidAspect {
 	}
 	
 	private Typeface loadTypeface(int id) {
-		return loadTypeface(activity.getString(id));
+		return loadTypeface(context.getString(id));
 	}
 
 	public void registerHostEvent(Object annotation, int type, Object id, final Method method) {
@@ -1410,20 +1384,17 @@ public abstract class RapidAspect {
 			
 			break;
 			
-		case HOST_EVENT_GLOBAL_LAYOUT:
-			final boolean once = (annotation == null ? true : ((OnGlobalLayout) annotation).once());
+		case HOST_EVENT_GLOBAL_LAYOUT: {
+			final OnGlobalLayout onGlobalLayout = (OnGlobalLayout) annotation;
+			final boolean once = (onGlobalLayout == null ? true : onGlobalLayout.once());
+			final Lifecycle lifecycle = (onGlobalLayout == null ? Lifecycle.CREATE : onGlobalLayout.lifecycle());
+			final View target = viewFinder.getSuperView();
 			
-			final ViewTreeObserver observer = activity.getWindow().getDecorView().getViewTreeObserver();
-			observer.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-				@SuppressWarnings("deprecation")
+			final Object dispatcher = new ViewTreeObserver.OnGlobalLayoutListener() {
 				@Override
 				public void onGlobalLayout() {
 					if (once) {
-						if (Build.VERSION.SDK_INT >= 16) {
-							activity.getWindow().getDecorView().getViewTreeObserver().removeOnGlobalLayoutListener(this);
-						} else {
-							activity.getWindow().getDecorView().getViewTreeObserver().removeGlobalOnLayoutListener(this);
-						}
+						removeOnGlobalLayoutListener(target, this);
 					}
 					
 					try {
@@ -1437,23 +1408,14 @@ public abstract class RapidAspect {
 						e.printStackTrace();
 					}
 				}
-			});
+			};
 			
+			registerUnregisterableEvent(lifecycle, OnGlobalLayoutRegistrar.getInstance(), target, dispatcher);
 			break;
+		}
 			
 		case HOST_EVENT_UNCAUGHT_EXCEPTION:
 			setupUncaughtExceptionHandler(method);
-			break;
-			
-		case HOST_EVENT_MENU_ITEM_CLICK:
-		case HOST_EVENT_QUERY_TEXT_CHANGE:
-		case HOST_EVENT_QUERY_TEXT_SUBMIT:
-			if (id == null) break;
-			
-			final Class<?>[] args = getHostEventArguments(type);
-			final ArgumentMapper argMatcher = new ArgumentMapper(args, method);
-			putHostEventHandler(type, (Integer) id, new EventHandlerInfo(method, argMatcher));
-			
 			break;
 		}
 	}
@@ -1521,10 +1483,10 @@ public abstract class RapidAspect {
 		}
 	}
 	
-	public void registerListenersToCurrentLifecycle() {
-		for (Lifecycle lifecycle: Lifecycle.values()) {
-			if (lifecycle.getValue() <= currentLifecycle.getValue()) {
-				registerListeners(lifecycle);
+	public void registerListenersUpTo(Lifecycle lifecycle) {
+		for (Lifecycle lc: Lifecycle.values()) {
+			if (lc.getValue() <= lifecycle.getValue()) {
+				registerListeners(lc);
 			}
 		}
 	}
@@ -1539,7 +1501,7 @@ public abstract class RapidAspect {
 			final IntentFilter filter = entry.getKey();
 			final BroadcastReceiver receiver = entry.getValue();
 			
-			activity.registerReceiver(receiver, filter);
+			context.registerReceiver(receiver, filter);
 		}
 	}
 	
@@ -1618,16 +1580,12 @@ public abstract class RapidAspect {
 		}
 	}
 	
-	public void setCurrentLifecycle(Lifecycle currentLifecycle) {
-		this.currentLifecycle = currentLifecycle;
-	}
-	
 	public void unbindServices() {
 		if (serviceConnections == null) return;
 		
 		for (ServiceConnection conn: serviceConnections) {
 			try {
-				activity.unbindService(conn);
+				context.unbindService(conn);
 			} catch (IllegalArgumentException e) {
 			}
 		}
@@ -1660,7 +1618,7 @@ public abstract class RapidAspect {
 		for (KeyValueEntry<IntentFilter, BroadcastReceiver> entry: list) {
 			final BroadcastReceiver receiver = entry.getValue();
 			try {
-				activity.unregisterReceiver(receiver);
+				context.unregisterReceiver(receiver);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -1845,212 +1803,12 @@ public abstract class RapidAspect {
 		set.clear();
 	}
 
-	public boolean onOptionsItemSelected(MenuItem item) {
-		final int id = item.getItemId();
-		if (id != 0) {
-			final EventHandlerInfo info = getHostEventHandler(HOST_EVENT_MENU_ITEM_CLICK, id);
-			if (info != null) {
-				try {
-					info.method.setAccessible(true);
-					return parseBooleanResult(info.method.invoke(memberContainer, info.argMatcher.map(item)), true);
-				} catch (IllegalAccessException e) {
-					throw new RuntimeException(e);
-				} catch (IllegalArgumentException e) {
-					throw new RuntimeException(e);
-				} catch (InvocationTargetException e) {
-					throw new RuntimeException(e);
-				}
-			}
-		}
-		
-		return false;
-	}
-	
-	private static boolean parseBooleanResult(Object o, boolean defaultValue) {
+	protected static boolean parseBooleanResult(Object o, boolean defaultValue) {
 		if (o == null) return defaultValue;
 		return (o instanceof Boolean ? (Boolean) o : defaultValue);
 	}
-	
-	protected abstract String getHostNamePostFix();
-	
-	public void injectOptionsMenu(MenuInflater inflater, Menu menu) {
-		final Resources res = activity.getResources();
-		
-		SearchBar sb = null;
-		
-		Class<?> cls = memberContainer.getClass();
-		
-		while (cls != null && !isRapidClass(cls)) {
-			final OptionsMenu optionsMenu = cls.getAnnotation(OptionsMenu.class);
-			if (optionsMenu != null) {
-				int id = optionsMenu.value();
-				if (id == 0) {
-					final String packageName = activity.getPackageName();
-					final String postfix = getHostNamePostFix();
-					
-					String name = cls.getSimpleName();
-					if (name.length() > 8 && name.endsWith(postfix)) {
-						name = ResourceUtils.toLowerUnderscored(name.substring(0, name.length() - postfix.length()));
-					} else {
-						name = ResourceUtils.toLowerUnderscored(name);
-					}
 
-					id = res.getIdentifier(name, "menu", packageName);
-				}
-
-				inflater.inflate(id, menu);
-			}
-			
-			if (sb == null) {
-				sb = cls.getAnnotation(SearchBar.class);
-			}
-
-			cls = cls.getSuperclass();
-		}
-		
-		// SearchBar
-		
-		if (sb != null) {
-			initSearchBar(menu, res, sb);
-		}
-	}
-	
-	private void initSearchBar(Menu menu, Resources res, SearchBar sb) {
-		int id = sb.value() | sb.id();
-		if (id != 0) {
-			final MenuItem item = menu.findItem(id);
-			if (item != null) {
-				String hint = sb.hint();
-				if (TextUtils.isEmpty(hint)) {
-					final int hintId = sb.hintId();
-					if (hintId == 0) {
-						hint = null;
-					} else {
-						hint = res.getString(hintId);
-					}
-				}
-				
-				if (Build.VERSION.SDK_INT >= 11) {
-					SearchView sv = (SearchView) item.getActionView();
-					if (sv == null) {
-						final ActionBar actionBar = activity.getActionBar();
-						final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
-						
-						sv = new SearchView(context);
-						item.setActionView(sv);
-					}
-					
-					if (hint != null) {
-						sv.setQueryHint(hint);
-					}
-					
-					final EventHandlerInfo event1 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
-					final EventHandlerInfo event2 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
-
-					if (event1 != null || event2 != null) {
-						sv.setOnQueryTextListener(new OnQueryTextListener() {
-							@Override
-							public boolean onQueryTextSubmit(String query) {
-								if (event2 == null) return false;
-
-								try {
-									event2.method.setAccessible(true);
-									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.map(query));
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (IllegalArgumentException e) {
-									e.printStackTrace();
-								} catch (InvocationTargetException e) {
-									e.printStackTrace();
-								}
-								
-								return false;
-							}
-							
-							@Override
-							public boolean onQueryTextChange(String newText) {
-								if (event1 == null) return false;
-								
-								try {
-									event1.method.setAccessible(true);
-									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.map(newText));
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (IllegalArgumentException e) {
-									e.printStackTrace();
-								} catch (InvocationTargetException e) {
-									e.printStackTrace();
-								}
-								
-								return false;
-							}
-						});
-					}
-				} else {
-					android.support.v7.widget.SearchView sv = (android.support.v7.widget.SearchView)
-							MenuItemCompat.getActionView(item);
-					if (sv == null) {
-						final android.support.v7.app.ActionBar actionBar;
-						if (activity instanceof ActionBarActivity) {
-							actionBar = ((ActionBarActivity) activity).getSupportActionBar();
-						} else {
-							actionBar = null;
-						}
-						
-						final Context context = (actionBar != null ? actionBar.getThemedContext() : activity);
-						
-						sv = new android.support.v7.widget.SearchView(context);
-						item.setActionView(sv);
-					}
-					
-					if (hint != null) {
-						sv.setQueryHint(hint);
-					}
-					
-					final EventHandlerInfo event1 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_CHANGE, id);
-					final EventHandlerInfo event2 = removeHostEventHandler(HOST_EVENT_QUERY_TEXT_SUBMIT, id);
-
-					if (event1 != null || event2 != null) {
-						sv.setOnQueryTextListener(new android.support.v7.widget.SearchView.OnQueryTextListener() {
-							@Override
-							public boolean onQueryTextSubmit(String query) {
-								if (event2 == null) return false;
-
-								try {
-									event2.method.setAccessible(true);
-									return (Boolean) event2.method.invoke(memberContainer, event2.argMatcher.map(query));
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (IllegalArgumentException e) {
-									e.printStackTrace();
-								} catch (InvocationTargetException e) {
-									e.printStackTrace();
-								}
-								
-								return false;
-							}
-							
-							@Override
-							public boolean onQueryTextChange(String newText) {
-								if (event1 == null) return false;
-								
-								try {
-									event1.method.setAccessible(true);
-									return (Boolean) event1.method.invoke(memberContainer, event1.argMatcher.map(newText));
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (IllegalArgumentException e) {
-									e.printStackTrace();
-								} catch (InvocationTargetException e) {
-									e.printStackTrace();
-								}
-								
-								return false;
-							}
-						});
-					}
-				}
-			}
-		}
+	ViewFinder getViewFinder() {
+		return viewFinder;
 	}
 }
